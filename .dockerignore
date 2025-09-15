@@ -1,0 +1,14 @@
+# .dockerignore at repo root
+.git
+**/.git
+**/node_modules
+**/dist
+**/build
+**/.env
+docker/.env
+*.log
+.vscode
+.idea
+# keep apps/** INCLUDED (do NOT put 'apps' here)
+resources/*
+!resources/.env_sample

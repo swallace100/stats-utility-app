@@ -1,0 +1,8 @@
+{
+  "name": "frontend",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "node -e \"require('http').createServer((_,r)=>r.end('frontend ok')).listen(5173)\""
+  },
+  "dependencies": {}
+}
