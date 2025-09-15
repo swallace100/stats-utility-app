@@ -1,0 +1,55 @@
+version: "3.9"
+services:
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: ../../docker/frontend.Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: ../../docker/backend.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_SVC_URL=http://stats_rs:9000
+      - PLOT_SVC_URL=http://plots:7000
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/stats
+    depends_on:
+      - stats_rs
+      - plots
+      - db
+
+  stats_rs:
+    build:
+      context: ./apps/stats_rs
+      dockerfile: ../../docker/stats_rs.Dockerfile
+    ports:
+      - "9000:9000"
+
+  plots:
+    build:
+      context: ./apps/plots_py
+      dockerfile: ../../docker/plots_py.Dockerfile
+    ports:
+      - "7000:7000"
+    volumes:
+      - plot_cache:/app/out
+
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=stats
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
+  plot_cache:
