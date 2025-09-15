@@ -147,7 +147,21 @@ README.md
   - Auto summary (e.g., “There was a significant difference… t(38)=2.15, p=0.037, d=0.68”).
   - Downloadable report (.md or .docx later).
 
-## Docker Contracts
+## Docker
+
+### Running and validating
+
+```bash
+docker compose --env-file ../resources/.env config   # should show variables resolved (no warnings)
+docker compose up -d        # start everything
+docker compose logs -f db   # wait for "database system is ready to accept connections"
+docker compose logs -f mongo
+docker compose ps
+docker compose config       # validate compose syntax
+
+```
+
+### Docker Contracts
 
 ```ts
 export const TTestTwoSampleParams = z.object({
