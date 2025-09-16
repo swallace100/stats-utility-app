@@ -54,18 +54,32 @@ services:
     image: postgres:16
     env_file:
       - .env
+    # no ports: keep DB internal-only
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p ${POSTGRES_PORT}"
-        ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p ${POSTGRES_PORT}"]
       interval: 5s
       timeout: 3s
       retries: 10
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./postgres-init:/docker-entrypoint-initdb.d:ro  # optional init scripts inside docker/
+      # - ./postgres-init:/docker-entrypoint-initdb.d:ro        # only run when DB is first created
+
+  pgadmin:
+    image: dpage/pgadmin4:9.8
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"  # single user mode
+    ports:
+      - "5050:80"            # access via http://localhost:5050
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    # (optional) restrict to localhost only:
+    # ports: ["127.0.0.1:5050:80"]
 
   mongo:
     image: mongo:7
@@ -84,8 +98,25 @@ services:
       retries: 10
     volumes:
       - mongo_data:/data/db
+      # - ./mongo-init:/docker-entrypoint-initdb.d:ro         # only run when DB is first created
+
+  mongo_express:
+    image: mongo-express:1
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo               # service name from compose
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: "true"
+      ME_CONFIG_MONGODB_AUTH_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      ME_CONFIG_MONGODB_AUTH_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USER}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
+    ports:
+      - "127.0.0.1:8081:8081"                       # http://localhost:8081
 
 volumes:
   db_data:
   mongo_data:
   plot_cache:
+  pgadmin_data:
