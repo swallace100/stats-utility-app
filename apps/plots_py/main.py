@@ -1,4 +1,8 @@
 from fastapi import FastAPI
 app = FastAPI()
+
 @app.get("/health")
-def h(): return {"ok": True}
+def health():
+    return {"ok": True}
+
+# add your other routes here…

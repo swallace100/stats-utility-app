@@ -1,1 +1,10 @@
-fn main() { println!("stats_rs ok"); std::thread::sleep(std::time::Duration::from_secs(3600)); }
+use axum::{routing::get, Router};
+use std::net::SocketAddr;
+
+#[tokio::main]
+async fn main() {
+    let app = Router::new().route("/health", get(|| async { "ok" }));
+    let addr: SocketAddr = ([0,0,0,0], 9000).into();
+    println!("stats_rs listening on {}", addr);
+    axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app).await.unwrap();
+}

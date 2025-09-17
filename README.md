@@ -182,24 +182,28 @@ export const TTestOut = z.object({
 ```
 
 ## Database
+
 ### When to mix databases (and why)
+
 - Relational core (Postgres/MySQL): strict integrity, joins, transactions. Great for users, permissions, datasets, jobs, and audit trails.
 - Document layer (MongoDB): flexible, sparse, rapidly evolving shapes (custom fields, settings, artifacts/specs) without migrations.
 - (Optional) Search layer (OpenSearch/Elasticsearch): fast, fuzzy search across names, notes, and attachments.
 - (Optional) Cache/queue (Redis/Kafka): speed + decoupling for ingestion and async jobs.
-Many CRM/contact products follow this pattern.
+  Many CRM/contact products follow this pattern.
 
 ### A concrete split for your Stats Utility App
+
 PostgreSQL (authoritative, transactional)
+
 - users, datasets, jobs (status, started_at, finished_at)
 - results_index (one row per analysis result; small summary columns; pointer to full blob)
 - Foreign keys, constraints, easy reporting
-MongoDB (flexible artifacts & evolving schemas)
+  MongoDB (flexible artifacts & evolving schemas)
 - results_blobs: the full JSON output from Rust (test stats, diagnostics), versioned
 - plot_specs: the chart spec you send to the Python service (these evolve a lot)
 - run_contexts: environment hashes, library versions, CPU flags (nice for reproducibility)
 - (Optional) custom_fields: arbitrary tags/notes a user attaches to datasets/jobs
-Why not just Postgres JSONB? You could. But using Mongo gives you practice with:
+  Why not just Postgres JSONB? You could. But using Mongo gives you practice with:
 - rapidly changing doc shapes,
 - partial updates,
 - different indexing strategies (compound, text, TTL),
@@ -209,17 +213,19 @@ Why not just Postgres JSONB? You could. But using Mongo gives you practice with:
 
 - Node API is the orchestrator. It writes the truth to Postgres (create job), then sends compute to Rust.
 - Rust returns results → Node:
-  1. stores full blob in Mongo (results_blobs), gets _id,
-  2. writes a summary row to Postgres results_index (with the Mongo _id).
+  1. stores full blob in Mongo (results_blobs), gets \_id,
+  2. writes a summary row to Postgres results_index (with the Mongo \_id).
 - For plots: Node builds a chart spec, saves it in Mongo plot_specs, calls Python to render, and stores the file path/hash back in Postgres (optional).
 - If you need stronger guarantees across stores, use the Outbox pattern (write an events row in Postgres within the same tx; a worker reads and applies it to Mongo) or CDC later.
 
 #### Pros
+
 - Right tool for each job: strict integrity + flexible evolution.
 - Performance: hot JSON docs in Mongo; clean reporting in SQL.
 - Evolvability: add fields to artifacts/specs without migrations.
 
 #### Cons
+
 - Operational complexity (two backups, two monitoring stacks).
 - No cross-DB transactions → need orchestration patterns (outbox/saga).
 - Duplicate data requires discipline (clear ownership rules).
@@ -259,3 +265,23 @@ Why not just Postgres JSONB? You could. But using Mongo gives you practice with:
 - Compare means (2 groups): violin+box, bar±CI, swarm (n≤5k).
 - Categorical × categorical: mosaic/stacked bar + residuals heatmap.
 - Regression: scatter + fitted line + CI band; residuals vs fitted; QQ.
+
+## PR Template
+
+### Summary
+
+Sets up initial infrastructure for the stats-utility-app:
+
+- Postgres + schema initialization (with persistent volume)
+- MongoDB + Mongo Express UI
+- pgAdmin with servers.json auto-register
+- Docker Compose orchestration with health checks and env-file support
+
+### Why
+
+Provides a baseline for multi-service orchestration and future extension (Rust microservice, plotting service, etc.).
+
+### Notes
+
+- `.env` files separated for Docker vs. app runtime
+- pgAdmin and Mongo Express are for dev/debug only
