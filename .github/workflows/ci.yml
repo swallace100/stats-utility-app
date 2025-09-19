@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "docker/**"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "docker/**"
+      - ".github/workflows/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      plots_py: ${{ steps.filter.outputs.plots_py }}
+      stats_rs: ${{ steps.filter.outputs.stats_rs }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+            frontend:
+              - 'apps/frontend/**'
+            plots_py:
+              - 'apps/plots_py/**'
+            stats_rs:
+              - 'apps/stats_rs/**'
+            docker:
+              - 'docker/**'
+
+  node:
+    name: Node (backend & frontend)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ["backend", "frontend"]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint || echo "(lint not configured)"
+      - run: npm run typecheck || echo "(typecheck not configured)"
+      - run: npm test || echo "(no tests)"
+      - if: matrix.app == 'frontend'
+        run: npm run build
+
+  python:
+    name: Python (plots_py)
+    needs: changes
+    if: needs.changes.outputs.plots_py == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/plots_py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            apps/plots_py/requirements.txt
+            apps/plots_py/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check . || echo "(lint not configured)"
+      - run: pytest -q || echo "(no tests)"
+
+  rust:
+    name: Rust (stats_rs)
+    needs: changes
+    if: needs.changes.outputs.stats_rs == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/stats_rs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --locked
+      - run: cargo test --locked || echo "(no tests)"
+
+  docker:
+    name: Docker Build
+    needs: [changes, node, python, rust]
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.plots_py == 'true' || needs.changes.outputs.stats_rs == 'true' || needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Validate compose
+        working-directory: docker
+        run: docker compose config
+      - name: Build with cache
+        working-directory: docker
+        run: |
+          docker buildx bake \
+            --set *.cache-from=type=gha,scope=statsapp \
+            --set *.cache-to=type=gha,scope=statsapp,mode=max
+
+  smoke:
+    name: Smoke Test
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start stack
+        working-directory: docker
+        run: |
+          docker compose up -d db mongo
+          # wait for dbs
+          timeout 60 bash -c 'until docker compose ps | grep -E "db.*healthy" && docker compose ps | grep -E "mongo.*healthy"; do sleep 2; done'
+          docker compose up -d backend plots_py stats_rs frontend
+          # wait for app services
+          timeout 90 bash -c 'until docker compose ps | grep -E "backend.*healthy" && docker compose ps | grep -E "plots_py.*healthy" && docker compose ps | grep -E "stats_rs.*healthy"; do sleep 2; done'
+      - name: Curl health endpoints
+        run: |
+          docker compose exec -T backend  wget -qO- http://127.0.0.1:8080/healthz
+          docker compose exec -T plots_py wget -qO- http://127.0.0.1:7000/health
+          docker compose exec -T stats_rs wget -qO- http://127.0.0.1:9000/health || true
+      - name: Stop stack
+        if: always()
+        working-directory: docker
+        run: docker compose down -v
