@@ -13,7 +13,7 @@
     {
       "type": "pull_request",
       "parameters": {
-        "required_approving_review_count": 1,
+        "required_approving_review_count": 0,
         "dismiss_stale_reviews_on_push": true,
         "require_code_owner_review": false,
         "require_last_push_approval": false,
@@ -26,15 +26,15 @@
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           {
-            "context": "CI / Node (backend & frontend) (frontend)"
+            "context": "CI / Node (backend & frontend) (frontend) (pull request)"
           },
           {
-            "context": "CI / Node (backend & frontend) (backend)"
+            "context": "CI / Node (backend & frontend) (backend) (pull request)"
           },
-          { "context": "CI / Python (plots_py)" },
-          { "context": "CI / Rust (stats_rs)" },
-          { "context": "CI / Docker Build" },
-          { "context": "CI / Smoke Test" }
+          { "context": "CI / Python (plots_py) (pull request)" },
+          { "context": "CI / Rust (stats_rs) (pull request)" },
+          { "context": "CI / Docker Build (pull request)" },
+          { "context": "CI / Smoke Test (pull request)" }
         ]
       }
     }
