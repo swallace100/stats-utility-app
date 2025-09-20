@@ -194,6 +194,7 @@ jobs:
           echo "PS full:"; docker compose -f docker-compose.yml ps || true
 
       - name: Debug plots_py container
+        working-directory: docker
         run: |
           CID=$(docker compose ps -q plots_py)
           docker inspect -f '{{.Config.Image}} {{.Config.Cmd}}' "$CID"
