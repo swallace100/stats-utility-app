@@ -12,7 +12,7 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY src ./src
 # If you have other build assets, copy them too (e.g., prisma/schema.prisma)
-RUN npx tsc -p tsconfig.json
+RUN npx tsc -p tsconfig.build.json
 
 # 3) Runtime with only production deps + compiled JS
 FROM node:20.14-alpine
