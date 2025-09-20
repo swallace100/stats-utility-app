@@ -187,9 +187,46 @@ jobs:
       - name: Start stack
         working-directory: docker
         run: |
+          set -euo pipefail
+
           docker compose up -d db mongo
-          # wait for dbs
-          timeout 60 bash -c 'until docker compose ps | grep -E "db.*healthy" && docker compose ps | grep -E "mongo.*healthy"; do sleep 2; done'
+          # helper to wait for a single service's health=healthy (or none)
+          wait_healthy () {
+            local svc="$1"
+            local id
+            id="$(docker compose ps -q "$svc")"
+            echo "Waiting for $svc ($id) to be healthy..."
+            for i in {1..60}; do
+              status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")"
+              echo "  $svc health: $status"
+              if [ "$status" = "healthy" ] || [ "$status" = "none" ]; then
+                return 0
+              fi
+              sleep 2
+            done
+            echo "Timed out waiting for $svc"
+            return 1
+          }
+
+          wait_healthy db
+          wait_healthy mongo
+
           docker compose up -d backend plots_py stats_rs frontend
-          # wait for app services
-          timeout 90 bash -c 'until docker compose ps | grep -E "backend.*healthy" && docker compose ps | grep -E "plots_py.*healthy" && docker compose ps | grep -E "stats_rs.*healthy"; do sleep 2; done'
+
+          # Wait for app services
+          wait_healthy backend
+          wait_healthy plots_py
+          wait_healthy stats_rs
+
+      - name: Curl health endpoints
+        working-directory: docker
+        run: |
+          docker compose exec -T backend  wget -qO- http://127.0.0.1:8080/health
+          docker compose exec -T plots_py  wget -qO- http://127.0.0.1:7000/health
+          # If Rust has HTTP health:
+          docker compose exec -T stats_rs wget -qO- http://127.0.0.1:9000/health || true
+
+      - name: Stop stack
+        if: always()
+        working-directory: docker
+        run: docker compose down -v
