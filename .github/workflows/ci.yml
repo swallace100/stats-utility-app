@@ -190,11 +190,33 @@ jobs:
           set -euo pipefail
 
           docker compose up -d db mongo
-          # helper to wait for a single service's health=healthy (or none)
+
           wait_healthy () {
             local svc="$1"
+            # Ensure the service exists in this compose
+            if ! docker compose ps --services | grep -qx "$svc"; then
+              echo "Service '$svc' not found. Available services:"
+              docker compose ps --services
+              exit 1
+            fi
+
+            # Make sure it's up (id will be empty if not created yet)
+            docker compose up -d "$svc"
+
+            # Get container id (strip CR from PowerShell)
             local id
-            id="$(docker compose ps -q "$svc")"
+            id="$(docker compose ps -q "$svc" | tr -d '\r')"
+            if [ -z "$id" ]; then
+              echo "Container for '$svc' not created yet; bringing it up..."
+              docker compose up -d "$svc"
+              id="$(docker compose ps -q "$svc" | tr -d '\r')"
+            fi
+            if [ -z "$id" ]; then
+              echo "Still no container id for '$svc'. Dumping compose ps:"
+              docker compose ps
+              exit 1
+            fi
+
             echo "Waiting for $svc ($id) to be healthy..."
             for i in {1..60}; do
               status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")"
@@ -208,12 +230,14 @@ jobs:
             return 1
           }
 
+          # DBs first
           wait_healthy db
           wait_healthy mongo
 
+          # Bring up app services explicitly
           docker compose up -d backend plots_py stats_rs frontend
 
-          # Wait for app services
+          # Then wait on each
           wait_healthy backend
           wait_healthy plots_py
           wait_healthy stats_rs
