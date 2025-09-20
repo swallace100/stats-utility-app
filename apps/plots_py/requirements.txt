@@ -1,5 +1,5 @@
-fastapi
-uvicorn
+fastapi~=0.115
+uvicorn[standard]~=0.30
 matplotlib
 numpy
-pandas
+pandas~=2.2

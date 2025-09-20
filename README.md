@@ -129,7 +129,7 @@ README.md
 ```json
 {
   "chartId": "c_789",
-  "url": "http://plots:7000/render/c_789.png",
+  "url": "http://plots_py:7000/render/c_789.png",
   "sha256": "ae4f...c2",
   "format": "png",
   "width": 900,

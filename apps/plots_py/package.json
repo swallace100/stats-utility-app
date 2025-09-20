@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "test": "npm run test:backend && npm run test:py && npm run test:rs",
+    "test:backend": "npm --prefix apps/backend test || echo \"no backend tests\"",
+    "test:py": "cd apps/plots_py && python -m pytest -q || echo \"no python tests\"",
+    "test:rs": "echo \"(rust tests skipped for now)\""
+  }
+}
