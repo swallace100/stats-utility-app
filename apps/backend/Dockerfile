@@ -8,10 +8,11 @@ RUN npm ci --no-audit --no-fund
 FROM node:20.14-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
 COPY tsconfig.json ./
 COPY src ./src
 # If you have other build assets, copy them too (e.g., prisma/schema.prisma)
-RUN npm run build    # expects "build": "tsc -p tsconfig.json"
+RUN npx tsc -p tsconfig.json
 
 # 3) Runtime with only production deps + compiled JS
 FROM node:20.14-alpine
