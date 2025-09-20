@@ -1,0 +1,6 @@
+node_modules
+coverage
+npm-debug.log*
+.DS_Store
+.git
+# keep tsconfig.json and src/** included (don't ignore them)

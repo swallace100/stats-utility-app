@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],         // no jest types during prod build
+    "noEmit": false,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["tests", "**/*.test.ts", "dist", "node_modules"]
+}
