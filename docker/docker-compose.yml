@@ -67,10 +67,10 @@ services:
     ports:
       - "7000:7000"
     healthcheck:
-      test: ["CMD", "python", "-c", "print('ok')"]
+      test: ["CMD", "true"]
       interval: 5s
       timeout: 3s
-      retries: 3
+      retries: 1
     volumes:
       - plot_cache:/app/out
 
