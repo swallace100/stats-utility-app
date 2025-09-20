@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libfreetype6 libjpeg62-turbo libpng16-16 wget ca-certificates \
+    libfreetype6 libjpeg62-turbo libpng16-16 wget curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # --- production runtime ---
