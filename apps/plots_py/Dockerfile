@@ -13,8 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM base AS runtime
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+ENV MPLBACKEND=Agg  
 COPY . .
 EXPOSE 7000
+HEALTHCHECK --interval=5s --timeout=3s --retries=12 CMD wget -qO- http://127.0.0.1:7000/health || exit 1
 CMD ["uvicorn","main:app","--host","0.0.0.0","--port","7000"]
 
 # --- test stage (what compose.test.yml targets) ---
