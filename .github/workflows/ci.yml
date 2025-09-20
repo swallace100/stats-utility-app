@@ -193,14 +193,6 @@ jobs:
           echo "Runtime services:"; docker compose -f docker-compose.yml ps --services || true
           echo "PS full:"; docker compose -f docker-compose.yml ps || true
 
-      - name: Debug plots_py container
-        working-directory: docker
-        run: |
-          CID=$(docker compose ps -q plots_py)
-          docker inspect -f '{{.Config.Image}} {{.Config.Cmd}}' "$CID"
-          docker inspect -f '{{json .State.Health}}' "$CID" | jq
-          docker logs "$CID" | sed -n '1,120p' || true
-
       - name: Start stack
         working-directory: docker
         shell: bash
