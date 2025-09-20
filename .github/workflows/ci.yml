@@ -185,88 +185,20 @@ jobs:
           PLOT_SVC_URL=http://plots_py:7000
           EOF
 
-      - name: Debug services
+      - name: Start stack
         working-directory: docker
-        shell: bash
         run: |
-          echo "Config services:"; docker compose -f docker-compose.yml config --services
-          echo "Runtime services:"; docker compose -f docker-compose.yml ps --services || true
-          echo "PS full:"; docker compose -f docker-compose.yml ps || true
 
       - name: Start stack
         working-directory: docker
         shell: bash
         run: |
-          set -euo pipefail
-
-          COMPOSE_FILE="-f docker-compose.yml"
-
-          echo "== Compose services (from config) =="
-          docker compose $COMPOSE_FILE config --services
-
-          # helper: wait until a service is healthy (or has no healthcheck -> 'none')
-          wait_healthy () {
-            local svc_raw="$1"
-            # trim potential CRLF from YAML line endings
-            local svc="$(echo "$svc_raw" | tr -d '\r')"
-
-            # validate service exists in config
-            if ! docker compose $COMPOSE_FILE config --services | tr -d '\r' | grep -qx "$svc"; then
-              echo "Service '$svc' not found in compose config. Available:"
-              docker compose $COMPOSE_FILE config --services
-              exit 1
-            fi
-
-            # ensure it's up
-            docker compose $COMPOSE_FILE up -d "$svc"
-
-            # get container id
-            local id
-            id="$(docker compose $COMPOSE_FILE ps -q "$svc" | tr -d '\r')"
-            if [ -z "$id" ]; then
-              echo "No container id yet for '$svc'; bringing up again..."
-              docker compose $COMPOSE_FILE up -d "$svc"
-              id="$(docker compose $COMPOSE_FILE ps -q "$svc" | tr -d '\r')"
-            fi
-            if [ -z "$id" ]; then
-              echo "Still no container id for '$svc'. Dumping ps:"
-              docker compose $COMPOSE_FILE ps
-              exit 1
-            fi
-
-            echo "Waiting for $svc ($id) to be healthy..."
-            for i in {1..60}; do
-              status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")"
-              echo "  $svc health: $status"
-              if [ "$status" = "healthy" ] || [ "$status" = "none" ]; then
-                return 0
-              fi
-              sleep 2
-            done
-            echo "Timed out waiting for $svc"
-            return 1
-          }
-
-          # bring up DBs first and wait
-          docker compose $COMPOSE_FILE up -d db mongo
-          wait_healthy db
-          wait_healthy mongo
-
-          # bring up app services
-          docker compose $COMPOSE_FILE up -d backend plots_py stats_rs frontend
-
-          # wait for each
-          wait_healthy backend
-          wait_healthy plots_py
-          wait_healthy stats_rs
-
-      - name: Curl health endpoints
-        working-directory: docker
-        run: |
-          docker compose exec -T backend  wget -qO- http://127.0.0.1:8080/health
-          docker compose exec -T plots_py  wget -qO- http://127.0.0.1:7000/health
-          # If Rust has HTTP health:
-          docker compose exec -T stats_rs wget -qO- http://127.0.0.1:9000/health || true
+          docker compose up -d db mongo
+          # wait for dbs
+          timeout 60 bash -c 'until docker compose ps | grep -E "db.*healthy" && docker compose ps | grep -E "mongo.*healthy"; do sleep 2; done'
+          docker compose up -d backend plots_py stats_rs frontend
+          # wait for app services
+          timeout 90 bash -c 'until docker compose ps | grep -E "backend.*healthy" && docker compose ps | grep -E "plots_py.*healthy" && docker compose ps | grep -E "stats_rs.*healthy"; do sleep 2; done'
 
       - name: Stop stack
         if: always()
