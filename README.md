@@ -285,3 +285,28 @@ Provides a baseline for multi-service orchestration and future extension (Rust m
 
 - `.env` files separated for Docker vs. app runtime
 - pgAdmin and Mongo Express are for dev/debug only
+
+## Updating the GitHub Actions ruleset
+
+Run the following command from root
+
+```bash
+# Delete existing
+gh api -X DELETE repos/swallace100/stats-utility-app/rulesets/<RULESET NUMBER>
+
+# Recreate with updated JSON
+gh api -X POST repos/swallace100/stats-utility-app/rulesets \
+  -H "Accept: application/vnd.github+json" \
+  --input .github/ruleset-main.json
+
+
+```
+
+To get the current GitHub Actions ruleset
+
+```bash
+gh api repos/swallace100/stats-utility-app/rulesets --jq '.[].id, .[].name'
+
+gh api repos/swallace100/stats-utility-app/rulesets/<RULESET NUMBER>
+
+```
