@@ -64,6 +64,7 @@ services:
     build:
       context: ../apps/plots_py
       dockerfile: Dockerfile
+      target: runtime
     ports:
       - "7000:7000"
     healthcheck:

@@ -192,6 +192,14 @@ jobs:
           echo "Config services:"; docker compose -f docker-compose.yml config --services
           echo "Runtime services:"; docker compose -f docker-compose.yml ps --services || true
           echo "PS full:"; docker compose -f docker-compose.yml ps || true
+
+      - name: Debug plots_py container
+        run: |
+          CID=$(docker compose ps -q plots_py)
+          docker inspect -f '{{.Config.Image}} {{.Config.Cmd}}' "$CID"
+          docker inspect -f '{{json .State.Health}}' "$CID" | jq
+          docker logs "$CID" | sed -n '1,120p' || true
+
       - name: Start stack
         working-directory: docker
         shell: bash
@@ -249,15 +257,12 @@ jobs:
           wait_healthy plots_py
           wait_healthy stats_rs
 
-      - name: Curl health endpoints
-        working-directory: docker
+      - name: Curl health endpoints (resilient wget)
         run: |
-          docker compose up -d db mongo
-          # wait for dbs
-          timeout 60 bash -c 'until docker compose ps | grep -E "db.*healthy" && docker compose ps | grep -E "mongo.*healthy"; do sleep 2; done'
-          docker compose up -d backend plots_py stats_rs frontend
-          # wait for app services
-          timeout 90 bash -c 'until docker compose ps | grep -E "backend.*healthy" && docker compose ps | grep -E "plots_py.*healthy" && docker compose ps | grep -E "stats_rs.*healthy"; do sleep 2; done'
+          set -e
+          docker compose exec -T backend  sh -lc 'for i in $(seq 1 40); do wget -qO- http://127.0.0.1:8080/health && exit 0 || sleep 2; done; exit 1'
+          docker compose exec -T plots_py sh -lc 'for i in $(seq 1 40); do wget -qO- http://127.0.0.1:7000/health && exit 0 || sleep 2; done; exit 1'
+          docker compose exec -T stats_rs sh -lc 'for i in $(seq 1 20); do wget -qO- http://127.0.0.1:9000/health && exit 0 || sleep 2; done; exit 0'
 
       - name: Stop stack
         if: always()
