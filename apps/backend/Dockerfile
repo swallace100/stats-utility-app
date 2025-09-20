@@ -10,6 +10,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY tsconfig.build.json ./ 
 COPY src ./src
 # If you have other build assets, copy them too (e.g., prisma/schema.prisma)
 RUN npx tsc -p tsconfig.build.json
