@@ -149,6 +149,10 @@ jobs:
         working-directory: docker
         run: |
           docker buildx bake \
+            --allow=fs.read=../apps/backend \
+            --allow=fs.read=../apps/frontend \
+            --allow=fs.read=../apps/plots_py \
+            --allow=fs.read=../apps/stats_rs \
             --set *.cache-from=type=gha,scope=statsapp \
             --set *.cache-to=type=gha,scope=statsapp,mode=max
 
