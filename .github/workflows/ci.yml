@@ -149,13 +149,13 @@ jobs:
         working-directory: docker
         run: |
           docker buildx bake \
-            --allow=fs.read=../apps/backend \
-            --allow=fs.read=../apps/frontend \
-            --allow=fs.read=../apps/plots_py \
-            --allow=fs.read=../apps/stats_rs \
-            --set *.cache-from=type=gha,scope=statsapp \
-            --set *.cache-to=type=gha,scope=statsapp,mode=max \
-            --set plots_py.no-cache=true
+          --allow=fs.read=../apps/backend \
+          --allow=fs.read=../apps/frontend \
+          --allow=fs.read=../apps/plots_py \
+          --allow=fs.read=../apps/stats_rs \
+          --set *.cache-from=type=gha,scope=statsapp \
+          --set *.cache-to=type=gha,scope=statsapp,mode=max \
+          --set plots_py.no-cache=true
 
   smoke:
     name: Smoke Test
@@ -185,13 +185,13 @@ jobs:
           PLOT_SVC_URL=http://plots_py:7000
           EOF
 
-      - name: Debug plots_py container
+      - name: Debug services
+        working-directory: docker
+        shell: bash
         run: |
-          docker compose down -v --remove-orphans
-          docker compose build --no-cache --pull plots_py
-          docker compose up -d plots_py
-          docker inspect -f '{{json .State.Health}}' docker-plots_py-1 || true
-          docker logs docker-plots_py-1 | sed -n '1,120p' || true
+          echo "Config services:"; docker compose -f docker-compose.yml config --services
+          echo "Runtime services:"; docker compose -f docker-compose.yml ps --services || true
+          echo "PS full:"; docker compose -f docker-compose.yml ps || true
 
       - name: Start stack
         working-directory: docker
