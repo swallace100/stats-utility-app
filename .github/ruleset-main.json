@@ -26,15 +26,15 @@
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           {
-            "context": "CI / Node (backend & frontend) (frontend) (pull request)"
+            "context": "Node (backend & frontend) (frontend)"
           },
           {
-            "context": "CI / Node (backend & frontend) (backend) (pull request)"
+            "context": "Node (backend & frontend) (backend)"
           },
-          { "context": "CI / Python (plots_py) (pull request)" },
-          { "context": "CI / Rust (stats_rs) (pull request)" },
-          { "context": "CI / Docker Build (pull request)" },
-          { "context": "CI / Smoke Test (pull request)" }
+          { "context": "Python (plots_py)" },
+          { "context": "Rust (stats_rs)" },
+          { "context": "Docker Build" },
+          { "context": "Smoke Test" }
         ]
       }
     }
