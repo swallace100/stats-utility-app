@@ -67,7 +67,7 @@ services:
     ports:
       - "7000:7000"
     healthcheck:
-      test: ["CMD", "true"]
+      test: ["CMD-SHELL", "exit 0"]
       interval: 5s
       timeout: 3s
       retries: 1
