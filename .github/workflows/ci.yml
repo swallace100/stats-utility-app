@@ -251,6 +251,7 @@ jobs:
           wait_healthy stats_rs
 
       - name: Curl health endpoints (resilient wget)
+        working-directory: docker
         run: |
           set -e
           docker compose exec -T backend  sh -lc 'for i in $(seq 1 40); do wget -qO- http://127.0.0.1:8080/health && exit 0 || sleep 2; done; exit 1'
