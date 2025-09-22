@@ -144,6 +144,7 @@ jobs:
         working-directory: apps/stats_rs
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
 
       # Fast no-op when stats_rs didn't change (still reports success)
       - name: No stats_rs changes — skipping

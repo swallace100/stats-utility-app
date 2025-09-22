@@ -2,7 +2,8 @@
 ARG RUST_VERSION=1.83
 
 # --- Build deps & cache cargo registry ---
-FROM rust:${RUST_VERSION}-slim AS build
+ARG RUST_CHANNEL=nightly
+FROM rust:${RUST_CHANNEL}-slim AS build
 WORKDIR /src
 
 # (Optional sanity) show toolchain
