@@ -45,34 +45,37 @@ jobs:
               - 'docker/**'
 
   node:
-    name: Node (backend & frontend)
+    # Name each matrix check distinctly so branch protection matches them
+    name: Node (backend & frontend) (${{ matrix.app }})
     needs: changes
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        app: ["backend", "frontend"]
+        app: [backend, frontend]
     defaults:
       run:
         working-directory: apps/${{ matrix.app }}
     steps:
       - uses: actions/checkout@v4
 
-      # If this app didn't change, still report success so branch protection is happy
-      - name: No changes for ${{ matrix.app }} – skipping
+      # No-op (but pass) when this app didn't change
+      - name: No changes for ${{ matrix.app }} — skipping
         if: >
           (matrix.app == 'backend'  && needs.changes.outputs.backend  != 'true') ||
           (matrix.app == 'frontend' && needs.changes.outputs.frontend != 'true')
-        run: echo "No relevant changes; passing."
+        run: echo "No relevant changes for ${{ matrix.app }}; passing."
 
+      # Real work only when the matching app DID change
       - uses: actions/setup-node@v4
         if: >
           (matrix.app == 'backend'  && needs.changes.outputs.backend  == 'true') ||
           (matrix.app == 'frontend' && needs.changes.outputs.frontend == 'true')
         with:
           node-version: 20
-          cache: "npm"
+          cache: npm
           cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+
       - run: npm ci --no-audit --no-fund
         if: >
           (matrix.app == 'backend'  && needs.changes.outputs.backend  == 'true') ||
@@ -99,38 +102,66 @@ jobs:
   python:
     name: Python (plots_py)
     needs: changes
-    if: needs.changes.outputs.plots_py == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/plots_py
     steps:
       - uses: actions/checkout@v4
+
+      # Fast no-op when plots_py didn't change (still reports success)
+      - name:
+          No plots_py changes — skipping
+          # if NOT changed
+        if: needs.changes.outputs.plots_py != 'true'
+        run: echo "No changes in apps/plots_py; passing."
+
+      # Real steps only when plots_py changed
       - uses: actions/setup-python@v5
+        if: needs.changes.outputs.plots_py == 'true'
         with:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: |
             apps/plots_py/requirements.txt
             apps/plots_py/requirements-dev.txt
+
       - run: pip install -r requirements-dev.txt
+        if: needs.changes.outputs.plots_py == 'true'
+
       - run: ruff check . || echo "(lint not configured)"
+        if: needs.changes.outputs.plots_py == 'true'
+
       - run: pytest -q || echo "(no tests)"
+        if: needs.changes.outputs.plots_py == 'true'
 
   rust:
     name: Rust (stats_rs)
     needs: changes
-    if: needs.changes.outputs.stats_rs == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/stats_rs
     steps:
       - uses: actions/checkout@v4
+
+      # Fast no-op when stats_rs didn't change (still reports success)
+      - name: No stats_rs changes — skipping
+        if: needs.changes.outputs.stats_rs != 'true'
+        run: echo "No changes in apps/stats_rs; passing."
+
+      # Real steps only when stats_rs changed
       - uses: dtolnay/rust-toolchain@stable
+        if: needs.changes.outputs.stats_rs == 'true'
+
       - uses: Swatinem/rust-cache@v2
+        if: needs.changes.outputs.stats_rs == 'true'
+
       - run: cargo check --locked
+        if: needs.changes.outputs.stats_rs == 'true'
+
       - run: cargo test --locked || echo "(no tests)"
+        if: needs.changes.outputs.stats_rs == 'true'
 
   docker:
     name: Docker Build
