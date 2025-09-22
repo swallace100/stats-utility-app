@@ -310,3 +310,51 @@ gh api repos/swallace100/stats-utility-app/rulesets --jq '.[].id, .[].name'
 gh api repos/swallace100/stats-utility-app/rulesets/<RULESET NUMBER>
 
 ```
+
+## Rust Commands
+
+### Build & run
+
+```ps
+cargo run
+```
+
+### Health
+
+```bash
+curl -fsS http://localhost:9000/health
+```
+
+### Describe (JSON array)
+
+```bash
+curl -fsS -X POST http://localhost:9000/describe \
+-H 'content-type: application/json' \
+-d '[1,2,3,4,5]'
+```
+
+### Describe (CSV)
+
+```bash
+curl -fsS -X POST http://localhost:9000/describe-csv \
+-H 'content-type: text/csv' \
+--data-binary $'value
+1
+2
+3
+4
+5' | jq
+```
+
+### Schema (input/output)
+
+```bash
+curl -fsS http://localhost:9000/schema/describe-input | jq
+curl -fsS http://localhost:9000/schema/describe-output | jq
+```
+
+### OpenAPI JSON
+
+```bash
+curl -fsS http://localhost:9000/openapi.json | jq
+```
