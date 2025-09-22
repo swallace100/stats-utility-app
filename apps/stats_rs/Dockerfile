@@ -1,30 +1,34 @@
+# --- Pick a toolchain new enough for edition 2024 ---
+ARG RUST_VERSION=1.83
+
 # --- Build deps & cache cargo registry ---
-FROM rust:1.80-slim AS build
+FROM rust:${RUST_VERSION}-slim AS build
 WORKDIR /src
 
+# (Optional sanity) show toolchain
+RUN rustc --version && cargo --version
+
 # 1) Pre-build to cache dependencies
+#    If this is a workspace, copy any member Cargo.toml files too.
 COPY Cargo.toml Cargo.lock ./
-# If this is a workspace, also COPY workspace members' Cargo.toml files here.
-RUN mkdir src && echo "fn main(){}" > src/main.rs \
-    && cargo build --release \
+RUN mkdir -p src && echo "fn main(){}" > src/main.rs \
+    && cargo build --release --locked \
     && rm -rf src
 
 # 2) Real source & final build
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --locked
 
-# --- Test image (used by compose.test.yml) ---
-FROM rust:1.80-slim AS test
+# --- Test image (for compose/test runs) ---
+FROM rust:${RUST_VERSION}-slim AS test
 WORKDIR /src
 
-# Repeat the dep-cache trick so test image also benefits
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main(){}" > src/main.rs \
-    && cargo build --release \
+RUN mkdir -p src && echo "fn main(){}" > src/main.rs \
+    && cargo build --release --locked \
     && rm -rf src
 
 COPY . .
-# `CMD` runs only when this stage is the target in docker-compose.test.yml
 CMD ["cargo", "test", "--locked"]
 
 # --- Minimal runtime image ---
@@ -33,12 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-# NOTE: adjust the binary name if your Cargo package isn't "stats_rs"
+# adjust the binary name if your package isn't "stats_rs"
 COPY --from=build /src/target/release/stats_rs /usr/local/bin/stats_rs
 
-# Non-root user
 USER 65532:65532
 EXPOSE 9000
-
 ENTRYPOINT ["/usr/bin/tini","--"]
 CMD ["stats_rs"]
