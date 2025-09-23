@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Body, HTTPException, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import Response
 import io
 import matplotlib
@@ -7,8 +8,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import httpx
 import csv
+import os
 
-app = FastAPI()
+DEBUG = os.getenv("DEBUG", "1") == "1"
+
+app = FastAPI(
+    title="plots_py",
+    version="0.1.0",
+    docs_url="/docs" if DEBUG else None,       # Swagger UI
+    redoc_url="/redoc" if DEBUG else None,     # ReDoc
+    openapi_url="/openapi.json" if DEBUG else None,  # OpenAPI JSON
+)
 
 RUST_URL = "http://stats_rs:9000"  # compose service name
 
@@ -74,6 +84,21 @@ async def render_csv(request: Request):
         raise HTTPException(status_code=400, detail="no numeric data found")
     # reuse render function behavior: generate PNG
     return await render(nums)
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title="plots_py",
+        version="0.1.0",
+        description="Rendering service: JSON/CSV → PNG",
+        routes=app.routes,
+    )
+    # add tags, servers, or anything else here if you want
+    app.openapi_schema = schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi  # attach the custom generator
 
 if __name__ == "__main__":
     import uvicorn
