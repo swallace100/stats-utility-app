@@ -68,10 +68,10 @@ services:
     ports:
       - "7000:7000"
     healthcheck:
-      test: ["CMD-SHELL", "exit 0"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7000/health || exit 1"]
       interval: 5s
       timeout: 3s
-      retries: 1
+      retries: 5
     volumes:
       - plot_cache:/app/out
 
