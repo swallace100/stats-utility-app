@@ -1,7 +1,7 @@
 # apps/plots_py/Dockerfile
 
 # --- base image with OS deps ---
-FROM python:3.12-slim AS base
+FROM python:3.13-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 WORKDIR /app
@@ -13,10 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM base AS runtime
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-ENV MPLBACKEND=Agg  
+ENV MPLBACKEND=Agg
 COPY . .
 EXPOSE 7000
-HEALTHCHECK NONE
+
+# Real healthcheck: expects 200 from /health
+HEALTHCHECK --interval=5s --timeout=3s --retries=5 \
+    CMD wget -qO- http://127.0.0.1:7000/health || exit 1
+
 CMD ["uvicorn","main:app","--host","0.0.0.0","--port","7000"]
 
 # --- test stage (what compose.test.yml targets) ---
@@ -24,5 +28,4 @@ FROM base AS test
 COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements-dev.txt
 COPY . .
-# only run the test runner here
 CMD ["pytest","-q"]

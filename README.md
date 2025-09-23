@@ -358,3 +358,15 @@ curl -fsS http://localhost:9000/schema/describe-output | jq
 ```bash
 curl -fsS http://localhost:9000/openapi.json | jq
 ```
+
+## Rust Commands
+
+```bash
+curl -fsS http://127.0.0.1:7000/health
+curl -fsS -X POST http://127.0.0.1:7000/render \
+  -H "content-type: application/json" -d "[1,2,3,4]" --output out.png
+curl -fsS -X POST http://127.0.0.1:7000/render-csv \
+  -H "content-type: text/csv" --data-binary $'val\n1\n2\n3\n4' --output out.png
+```
+
+OpenAPI endpoints available at `http://127.0.0.1:7000/docs`
