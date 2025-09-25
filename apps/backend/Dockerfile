@@ -3,12 +3,12 @@ FROM node:20.14-alpine AS deps
 WORKDIR /app
 
 # Copy manifests for both backend and contracts so npm can resolve file: dep
-# (context must be repo root)
+# (build context must be repo root)
 COPY package*.json ./
 COPY apps/backend/package*.json apps/backend/
 COPY apps/packages/contracts/package*.json apps/packages/contracts/
 
-# Install backend deps (will record the file: dep)
+# Install backend deps (records the file: dep)
 WORKDIR /app/apps/backend
 RUN npm ci --no-audit --no-fund
 
@@ -18,9 +18,9 @@ WORKDIR /app
 # bring in the contracts sources from the build context
 COPY apps/packages/contracts apps/packages/contracts
 WORKDIR /app/apps/packages/contracts
-# was: RUN npm ci --no-audit --no-fund
+# if there's no package-lock.json here, use npm install (not ci)
 RUN npm install --no-audit --no-fund
-RUN npm run build
+RUN npm run build  # emits dist/ (+ .d.ts if configured)
 
 # ---------- build backend ----------
 FROM node:20.14-alpine AS build
@@ -34,13 +34,15 @@ COPY apps/backend/package*.json apps/backend/
 COPY apps/backend/tsconfig*.json apps/backend/
 COPY apps/backend/src apps/backend/src
 
+# Switch into backend so relative paths work and parent dirs exist
+WORKDIR /app/apps/backend
+
 # Make the built contracts available under backend's node_modules
-RUN mkdir -p /app/apps/backend/node_modules/@your-scope/contracts
-COPY --from=contracts /app/apps/packages/contracts/dist /app/apps/backend/node_modules/@your-scope/contracts/dist
-COPY --from=contracts /app/apps/packages/contracts/package.json /app/apps/backend/node_modules/@your-scope/contracts/package.json
+RUN mkdir -p node_modules/@your-scope/contracts
+COPY --from=contracts /app/apps/packages/contracts/dist node_modules/@your-scope/contracts/dist
+COPY --from=contracts /app/apps/packages/contracts/package.json node_modules/@your-scope/contracts/package.json
 
 # Compile backend TS -> dist
-WORKDIR /app/apps/backend
 RUN npx tsc -p tsconfig.build.json
 
 # ---------- runtime ----------
