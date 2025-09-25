@@ -30,6 +30,8 @@ services:
       - MONGO_URL=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/?authSource=admin
       - RUST_SVC_URL=${RUST_SVC_URL}
       - PLOT_SVC_URL=${PLOT_SVC_URL}
+      - NO_DB=1            # Use in-memory jobs; don't connect to Mongo
+      - FAKE_SERVICES=1    # Don't call Rust/Python during smoke
       - PORT=8080
       - UPLOAD_DIR=/data/uploads
       - PLOTS_DIR=/data/plots
