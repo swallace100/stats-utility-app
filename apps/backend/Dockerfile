@@ -19,6 +19,8 @@ COPY apps/packages/contracts apps/packages/contracts
 WORKDIR /app/apps/packages/contracts
 RUN npm install --no-audit --no-fund
 RUN npm run build  # emits dist/ (+ .d.ts if configured)
+# create a tarball we can install in runtime
+RUN npm pack --silent && mv *.tgz /tmp/contracts.tgz
 
 # ---------- build backend ----------
 FROM node:20.14-alpine AS build
@@ -69,13 +71,12 @@ USER app
 COPY apps/backend/package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
+# Install the built contracts package tarball
+COPY --from=contracts /tmp/contracts.tgz /tmp/contracts.tgz
+RUN npm install --omit=dev --no-audit --no-fund /tmp/contracts.tgz
+
 # Bring compiled backend
 COPY --from=build /app/apps/backend/dist ./dist
-
-# Ship the built contracts package into runtime node_modules (so require("@your-scope/contracts") works)
-RUN mkdir -p node_modules/@your-scope/contracts
-COPY --from=contracts /app/apps/packages/contracts/dist node_modules/@your-scope/contracts/dist
-COPY apps/packages/contracts/package.json node_modules/@your-scope/contracts/package.json
 
 EXPOSE 8080
 CMD ["node","dist/server.js"]
