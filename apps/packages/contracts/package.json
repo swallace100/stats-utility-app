@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "clean": "rimraf dist || rm -rf dist",
-    "prepare": "npm run build"
+    "prepare": "npm install --no-audit --no-fund"
   },
   "peerDependencies": {
     "@asteasolutions/zod-to-openapi": "^8.1.0",
