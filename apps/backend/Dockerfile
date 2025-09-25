@@ -12,13 +12,11 @@ COPY apps/packages/contracts/package*.json apps/packages/contracts/
 WORKDIR /app/apps/backend
 RUN npm ci --no-audit --no-fund
 
-# ---------- build contracts (to have dist for runtime) ----------
+# ---------- build contracts (to have dist for runtime & types for TS) ----------
 FROM node:20.14-alpine AS contracts
 WORKDIR /app
-# bring in the contracts sources from the build context
 COPY apps/packages/contracts apps/packages/contracts
 WORKDIR /app/apps/packages/contracts
-# if there's no package-lock.json here, use npm install (not ci)
 RUN npm install --no-audit --no-fund
 RUN npm run build  # emits dist/ (+ .d.ts if configured)
 
@@ -34,24 +32,26 @@ COPY apps/backend/package*.json apps/backend/
 COPY apps/backend/tsconfig*.json apps/backend/
 COPY apps/backend/src apps/backend/src
 
-# Also copy contracts *source* so TS can compile against it via path mapping
-COPY apps/packages/contracts/src apps/packages/contracts/src
+# Copy ONLY contracts *dist* (types) for compile-time path mapping
+COPY --from=contracts /app/apps/packages/contracts/dist apps/packages/contracts/dist
 
 # Switch into backend
 WORKDIR /app/apps/backend
 
-# Create a local tsconfig that maps @your-scope/contracts -> ../packages/contracts/src
-# This avoids needing node_modules during compile
-RUN node -e '\
-    const fs = require("fs"); \
-    const base = JSON.parse(fs.readFileSync("tsconfig.build.json","utf8")); \
-    base.compilerOptions = base.compilerOptions || {}; \
-    base.compilerOptions.baseUrl = base.compilerOptions.baseUrl || "."; \
-    base.compilerOptions.paths = Object.assign({}, base.compilerOptions.paths, { \
-    "@your-scope/contracts": ["../packages/contracts/src"], \
-    "@your-scope/contracts/*": ["../packages/contracts/src/*"] \
-    }); \
-    fs.writeFileSync("tsconfig.build.local.json", JSON.stringify(base, null, 2));'
+# Create a local tsconfig that extends your build config and maps the package to dist types
+RUN cat > tsconfig.build.local.json <<'EOF'
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@your-scope/contracts": ["../packages/contracts/dist"],
+      "@your-scope/contracts/*": ["../packages/contracts/dist/*"]
+    }
+  }
+}
+EOF
 
 # Compile backend TS -> dist using the local tsconfig with paths
 RUN npx tsc -p tsconfig.build.local.json

@@ -1,6 +1,6 @@
 import swaggerUi from "swagger-ui-express";
 import express from "express";
-import { generateOpenApi } from "@your-scope/contracts/src/openapi";
+import { generateOpenApi } from "@your-scope/contracts";
 
 export function registerDocs(app: express.Express) {
   const doc = generateOpenApi();
