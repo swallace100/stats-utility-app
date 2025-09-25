@@ -202,7 +202,8 @@ jobs:
       - name: Build with bake
         uses: docker/bake-action@v5
         with:
-          files: docker/docker-compose.yml
+          workdir: docker
+          files: docker-compose.yml
           set: |
             *.cache-from=type=gha,scope=statsapp
             *.cache-to=type=gha,scope=statsapp,mode=max
