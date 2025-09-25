@@ -63,17 +63,16 @@ FROM node:20.14-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
-# non-root user
+# Install production deps (as root), then install the built contracts tarball
+COPY apps/backend/package*.json ./
+COPY --from=contracts /tmp/contracts.tgz /tmp/contracts.tgz
+RUN npm ci --omit=dev --no-audit --no-fund \
+    && npm install --omit=dev --no-audit --no-fund /tmp/contracts.tgz \
+    && rm -f /tmp/contracts.tgz
+
+# Drop privileges AFTER installs so /app is owned correctly
 RUN adduser -D app && chown -R app:app /app
 USER app
-
-# Install only production deps for backend
-COPY apps/backend/package*.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
-
-# Install the built contracts package tarball
-COPY --from=contracts /tmp/contracts.tgz /tmp/contracts.tgz
-RUN npm install --omit=dev --no-audit --no-fund /tmp/contracts.tgz
 
 # Bring compiled backend
 COPY --from=build /app/apps/backend/dist ./dist
