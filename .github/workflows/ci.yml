@@ -173,31 +173,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
 
-      # 👇 Add this step right after checkout
-      - name: Create CI .env
-        working-directory: docker
+      - name: Write docker/.env
         run: |
-          cat > .env <<'EOF'
+          mkdir -p docker
+          cat > docker/.env <<'EOF'
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB=${{ secrets.POSTGRES_DB }}
           POSTGRES_HOST=db
           POSTGRES_PORT=5432
 
-          PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
-          PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
-
           MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_INITDB_ROOT_USERNAME }}
           MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}
           MONGO_HOST=mongo
           MONGO_PORT=27017
 
-          MONGO_EXPRESS_USER=${{ secrets.MONGO_EXPRESS_USER }}
-          MONGO_EXPRESS_PASSWORD=${{ secrets.MONGO_EXPRESS_PASSWORD }}
+          PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
+          PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
 
           RUST_SVC_URL=http://stats_rs:9000
           PLOT_SVC_URL=http://plots_py:7000
-          VITE_API_URL=http://backend:8080
           EOF
 
       - name: Validate compose
