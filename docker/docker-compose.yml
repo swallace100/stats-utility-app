@@ -31,12 +31,16 @@ services:
       - RUST_SVC_URL=${RUST_SVC_URL}
       - PLOT_SVC_URL=${PLOT_SVC_URL}
       - PORT=8080
+      - UPLOAD_DIR=/data/uploads
+      - PLOTS_DIR=/data/plots
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 6
       start_period: 15s
+    volumes:
+      - data:/data
     depends_on:
       db:
         condition: service_healthy
@@ -51,8 +55,12 @@ services:
     build:
       context: ../apps/stats_rs
       dockerfile: Dockerfile
-    ports:
+    ports: # dev only. change to expose in prod
       - "9000:9000"
+    environment:
+      - DATA_DIR=/data
+    volumes:
+      - data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/health >/dev/null || exit 1"]
       interval: 10s
@@ -65,20 +73,28 @@ services:
       context: ../apps/plots_py
       dockerfile: Dockerfile
       target: runtime
-    ports:
+    ports: # dev only. change to expose in prod
       - "7000:7000"
+    environment:
+      - DATA_DIR=/data
+      - PLOTS_DIR=/data/plots    
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7000/health || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 5
     volumes:
-      - plot_cache:/app/out
+      - data:/data
+      - plot_cache:/app/out   
 
   db:
     image: postgres:16
     env_file:
       - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     # no ports: keep DB internal-only
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p ${POSTGRES_PORT}"]
@@ -116,6 +132,10 @@ services:
     image: mongo:7
     env_file:
       - .env
+    command: ["--auth"]
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
     ports:
       - "27017:27017" # optional for local dev
     healthcheck:
