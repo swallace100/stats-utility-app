@@ -77,6 +77,9 @@ RUN npm install --omit=dev --no-audit --no-fund \
   && npm install --omit=dev --no-audit --no-fund /tmp/contracts.tgz \
   && rm -f /tmp/contracts.tgz
 
+# 👉 Ensure curl is available for healthchecks/smoke
+RUN apk add --no-cache curl
+
 # Create a writable data dir under /app
 RUN mkdir -p /app/data
 

@@ -8,9 +8,9 @@ services:
       - VITE_API_URL=http://localhost:8080
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 3s
-      retries: 3
+      retries: 5
       start_period: 10s
     depends_on:
       backend:
@@ -34,13 +34,13 @@ services:
       - UPLOAD_DIR=/app/data/uploads
       - PLOTS_DIR=/app/data/plots
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 20s
       timeout: 3s
-      retries: 6
-      start_period: 15s
+      retries: 5
+      start_period: 10s
     volumes:
-      - ./data:/app/data
+      - data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -63,10 +63,10 @@ services:
       - data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/health >/dev/null || exit 1"]
-      interval: 10s
+      interval: 20s
       timeout: 3s
-      retries: 6
-      start_period: 20s
+      retries: 5
+      start_period: 10s
     networks: [appnet]
 
   plots_py:
@@ -80,9 +80,10 @@ services:
       - PLOTS_DIR=/data/plots
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7000/health || exit 1"]
-      interval: 5s
+      interval: 20s
       timeout: 3s
       retries: 5
+      start_period: 10s
     volumes:
       - data:/data
       - plot_cache:/app/out
@@ -97,9 +98,10 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p ${POSTGRES_PORT}"]
-      interval: 5s
+      interval: 20s
       timeout: 3s
-      retries: 10
+      retries: 5
+      start_period: 10s
     volumes:
       - db_data:/var/lib/postgresql/data
     networks: [appnet]
@@ -119,10 +121,10 @@ services:
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 3s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 10s
     networks: [appnet]
 
   mongo:
@@ -139,9 +141,10 @@ services:
           "CMD-SHELL",
           "mongosh --quiet -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' || exit 1"
         ]
-      interval: 5s
+      interval: 20s
       timeout: 3s
-      retries: 10
+      retries: 5
+      start_period: 10s
     volumes:
       - mongo_data:/data/db
     networks: [appnet]
@@ -161,10 +164,10 @@ services:
     ports: ["127.0.0.1:8081:8081"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/ >/dev/null || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 3s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 10s
     networks: [appnet]
 
 volumes:
