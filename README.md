@@ -370,3 +370,13 @@ curl -fsS -X POST http://127.0.0.1:7000/render-csv \
 ```
 
 OpenAPI endpoints available at `http://127.0.0.1:7000/docs`
+
+## Backend Commands
+
+### Swagger only (No database and no services)
+
+```bash
+  NO_DB=1 FAKE_SERVICES=1 PORT=8080 \
+  UPLOAD_DIR=./tmp/uploads PLOTS_DIR=./tmp/plots \
+  npm run dev
+```
