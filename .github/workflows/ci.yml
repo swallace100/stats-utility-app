@@ -58,7 +58,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # No-op step if nothing changed...
       - name: No changes for ${{ matrix.app }} — skipping
         if: >
           (matrix.app == 'backend'  && needs.changes.outputs.backend  != 'true') ||
@@ -74,10 +73,16 @@ jobs:
           cache: npm
           cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
 
-      # 👇 ADD THIS STEP (only for backend builds)
+      # 👇 Contracts install + build, force working-directory to repo root
       - name: Install contracts deps
         if: matrix.app == 'backend' && needs.changes.outputs.backend == 'true'
+        working-directory: .
         run: npm install --no-audit --no-fund --prefix apps/packages/contracts
+
+      - name: Build contracts
+        if: matrix.app == 'backend' && needs.changes.outputs.backend == 'true'
+        working-directory: .
+        run: npm run build --prefix apps/packages/contracts
 
       - run: npm ci --no-audit --no-fund
         if: >
