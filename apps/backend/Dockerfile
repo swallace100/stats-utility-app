@@ -12,7 +12,7 @@ COPY apps/packages/contracts/package*.json apps/packages/contracts/
 WORKDIR /app/apps/backend
 RUN npm ci --no-audit --no-fund
 
-# ---------- build contracts ----------
+# ---------- build contracts (to have dist for runtime) ----------
 FROM node:20.14-alpine AS contracts
 WORKDIR /app
 # bring in the contracts sources from the build context
@@ -34,16 +34,27 @@ COPY apps/backend/package*.json apps/backend/
 COPY apps/backend/tsconfig*.json apps/backend/
 COPY apps/backend/src apps/backend/src
 
-# Switch into backend so relative paths work and parent dirs exist
+# Also copy contracts *source* so TS can compile against it via path mapping
+COPY apps/packages/contracts/src apps/packages/contracts/src
+
+# Switch into backend
 WORKDIR /app/apps/backend
 
-# Make the built contracts available under backend's node_modules
-RUN mkdir -p node_modules/@your-scope/contracts
-COPY --from=contracts /app/apps/packages/contracts/dist node_modules/@your-scope/contracts/dist
-COPY --from=contracts /app/apps/packages/contracts/package.json node_modules/@your-scope/contracts/package.json
+# Create a local tsconfig that maps @your-scope/contracts -> ../packages/contracts/src
+# This avoids needing node_modules during compile
+RUN node -e '\
+    const fs = require("fs"); \
+    const base = JSON.parse(fs.readFileSync("tsconfig.build.json","utf8")); \
+    base.compilerOptions = base.compilerOptions || {}; \
+    base.compilerOptions.baseUrl = base.compilerOptions.baseUrl || "."; \
+    base.compilerOptions.paths = Object.assign({}, base.compilerOptions.paths, { \
+    "@your-scope/contracts": ["../packages/contracts/src"], \
+    "@your-scope/contracts/*": ["../packages/contracts/src/*"] \
+    }); \
+    fs.writeFileSync("tsconfig.build.local.json", JSON.stringify(base, null, 2));'
 
-# Compile backend TS -> dist
-RUN npx tsc -p tsconfig.build.json
+# Compile backend TS -> dist using the local tsconfig with paths
+RUN npx tsc -p tsconfig.build.local.json
 
 # ---------- runtime ----------
 FROM node:20.14-alpine
@@ -61,10 +72,10 @@ RUN npm ci --omit=dev --no-audit --no-fund
 # Bring compiled backend
 COPY --from=build /app/apps/backend/dist ./dist
 
-# Ship the built contracts package into runtime node_modules
+# Ship the built contracts package into runtime node_modules (so require("@your-scope/contracts") works)
 RUN mkdir -p node_modules/@your-scope/contracts
 COPY --from=contracts /app/apps/packages/contracts/dist node_modules/@your-scope/contracts/dist
-COPY --from=contracts /app/apps/packages/contracts/package.json node_modules/@your-scope/contracts/package.json
+COPY apps/packages/contracts/package.json node_modules/@your-scope/contracts/package.json
 
 EXPOSE 8080
 CMD ["node","dist/server.js"]
