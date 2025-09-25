@@ -2,9 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": false,
-    "rootDir": "src",             // <- compile only app code
+    "rootDir": "src",             // Compile only app code
     "outDir": "dist",
-    "types": ["node"]             // no jest types in prod build
+    "types": ["node"]             // No jest types in prod build
   },
   "include": ["src/**/*.ts"],
   "exclude": ["tests", "**/*.test.ts", "dist", "node_modules"]

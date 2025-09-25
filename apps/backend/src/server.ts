@@ -4,8 +4,8 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { MongoClient, ObjectId } from "mongodb";
 
-import { UploadJobInput } from "@your-scope/contracts/src/job";
-import type { TUploadResponse } from "@your-scope/contracts/src/job";
+import { UploadJobInput } from "@your-scope/contracts";
+import type { TUploadResponse } from "@your-scope/contracts";
 import { registerDocs } from "./docs";
 
 // ----- Env & constants -----
