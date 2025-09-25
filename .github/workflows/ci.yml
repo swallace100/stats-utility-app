@@ -77,7 +77,7 @@ jobs:
       # 👇 ADD THIS STEP (only for backend builds)
       - name: Install contracts deps
         if: matrix.app == 'backend' && needs.changes.outputs.backend == 'true'
-        run: npm ci --no-audit --no-fund --prefix apps/packages/contracts
+        run: npm install --no-audit --no-fund --prefix apps/packages/contracts
 
       - run: npm ci --no-audit --no-fund
         if: >
