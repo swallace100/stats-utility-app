@@ -45,7 +45,6 @@ jobs:
               - 'docker/**'
 
   node:
-    # Name each matrix check distinctly so branch protection matches them
     name: Node (backend & frontend) (${{ matrix.app }})
     needs: changes
     runs-on: ubuntu-latest
@@ -59,14 +58,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # No-op (but pass) when this app didn't change
+      # No-op step if nothing changed...
       - name: No changes for ${{ matrix.app }} — skipping
         if: >
           (matrix.app == 'backend'  && needs.changes.outputs.backend  != 'true') ||
           (matrix.app == 'frontend' && needs.changes.outputs.frontend != 'true')
         run: echo "No relevant changes for ${{ matrix.app }}; passing."
 
-      # Real work only when the matching app DID change
       - uses: actions/setup-node@v4
         if: >
           (matrix.app == 'backend'  && needs.changes.outputs.backend  == 'true') ||
@@ -75,6 +73,11 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+
+      # 👇 ADD THIS STEP (only for backend builds)
+      - name: Install contracts deps
+        if: matrix.app == 'backend' && needs.changes.outputs.backend == 'true'
+        run: npm ci --no-audit --no-fund --prefix apps/packages/contracts
 
       - run: npm ci --no-audit --no-fund
         if: >
