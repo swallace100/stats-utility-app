@@ -1,0 +1,31 @@
+{
+  "name": "@your-scope/contracts",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist || rm -rf dist"
+  },
+  "peerDependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.1.0",
+    "zod": "^4.1.11"
+  },
+  "dependencies": {
+    "stats-utility-app": "file:../../.."
+  },
+  "devDependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.1.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.4.0"
+  }
+}

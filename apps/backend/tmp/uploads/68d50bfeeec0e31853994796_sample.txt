@@ -1,0 +1,1 @@
+{"kind":"plot","params":{"chart":"hist","col":"age"}}

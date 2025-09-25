@@ -3,40 +3,44 @@ services:
     build:
       context: ../apps/frontend
       dockerfile: Dockerfile
-    ports:
-      - "5173:5173"
+    ports: ["5173:5173"]
     environment:
       - VITE_API_URL=http://localhost:8080
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 3s
-      retries: 3
+      retries: 5
       start_period: 10s
     depends_on:
       backend:
         condition: service_started
+    networks: [appnet]
 
   backend:
     build:
-      context: ../apps/backend
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+    ports: ["8080:8080"]
+    env_file: [.env]
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       - MONGO_URL=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/?authSource=admin
       - RUST_SVC_URL=${RUST_SVC_URL}
       - PLOT_SVC_URL=${PLOT_SVC_URL}
+      - NO_DB=1
+      - FAKE_SERVICES=1
       - PORT=8080
+      - UPLOAD_DIR=/app/data/uploads
+      - PLOTS_DIR=/app/data/plots
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 20s
       timeout: 3s
-      retries: 6
-      start_period: 15s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -46,48 +50,61 @@ services:
         condition: service_started
       plots_py:
         condition: service_started
+    networks: [appnet]
 
   stats_rs:
     build:
       context: ../apps/stats_rs
       dockerfile: Dockerfile
-    ports:
-      - "9000:9000"
+    ports: ["9000:9000"]
+    environment:
+      - DATA_DIR=/data
+    volumes:
+      - data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/health >/dev/null || exit 1"]
-      interval: 10s
+      interval: 20s
       timeout: 3s
-      retries: 6
-      start_period: 20s
+      retries: 5
+      start_period: 10s
+    networks: [appnet]
 
   plots_py:
     build:
       context: ../apps/plots_py
       dockerfile: Dockerfile
       target: runtime
-    ports:
-      - "7000:7000"
+    ports: ["7000:7000"]
+    environment:
+      - DATA_DIR=/data
+      - PLOTS_DIR=/data/plots
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7000/health || exit 1"]
-      interval: 5s
+      interval: 20s
       timeout: 3s
       retries: 5
+      start_period: 10s
     volumes:
+      - data:/data
       - plot_cache:/app/out
+    networks: [appnet]
 
   db:
     image: postgres:16
-    env_file:
-      - .env
-    # no ports: keep DB internal-only
+    env_file: [.env]
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p ${POSTGRES_PORT}"]
-      interval: 5s
+      interval: 20s
       timeout: 3s
-      retries: 10
+      retries: 5
+      start_period: 10s
     volumes:
       - db_data:/var/lib/postgresql/data
-      # - ./postgres-init:/docker-entrypoint-initdb.d:ro        # only run when DB is first created
+    networks: [appnet]
 
   pgadmin:
     image: dpage/pgadmin4:9.8
@@ -97,39 +114,40 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-      PGADMIN_CONFIG_SERVER_MODE: "False"  # single user mode
-    ports:
-      - "5050:80"            # access via http://localhost:5050
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports: ["5050:80"]
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
-    # (optional) restrict to localhost only:
-    # ports: ["127.0.0.1:5050:80"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 3s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 10s
+    networks: [appnet]
 
   mongo:
     image: mongo:7
-    env_file:
-      - .env
-    ports:
-      - "27017:27017" # optional for local dev
+    env_file: [.env]
+    command: ["--auth"]
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    ports: ["27017:27017"]
     healthcheck:
       test:
         [
           "CMD-SHELL",
           "mongosh --quiet -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' || exit 1"
         ]
-      interval: 5s
+      interval: 20s
       timeout: 3s
-      retries: 10
+      retries: 5
+      start_period: 10s
     volumes:
       - mongo_data:/data/db
-      # - ./mongo-init:/docker-entrypoint-initdb.d:ro         # only run when DB is first created
+    networks: [appnet]
 
   mongo_express:
     image: mongo-express:1
@@ -137,23 +155,28 @@ services:
       mongo:
         condition: service_healthy
     environment:
-      ME_CONFIG_MONGODB_SERVER: mongo               # service name from compose
+      ME_CONFIG_MONGODB_SERVER: mongo
       ME_CONFIG_MONGODB_ENABLE_ADMIN: "true"
       ME_CONFIG_MONGODB_AUTH_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       ME_CONFIG_MONGODB_AUTH_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
       ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USER}
       ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
-    ports:
-      - "127.0.0.1:8081:8081"                       # http://localhost:8081
+    ports: ["127.0.0.1:8081:8081"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/ >/dev/null || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 3s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 10s
+    networks: [appnet]
 
 volumes:
   db_data:
   mongo_data:
   plot_cache:
   pgadmin_data:
+  data:
+
+networks:
+  appnet:
+    driver: bridge

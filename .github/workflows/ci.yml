@@ -45,7 +45,6 @@ jobs:
               - 'docker/**'
 
   node:
-    # Name each matrix check distinctly so branch protection matches them
     name: Node (backend & frontend) (${{ matrix.app }})
     needs: changes
     runs-on: ubuntu-latest
@@ -59,14 +58,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # No-op (but pass) when this app didn't change
       - name: No changes for ${{ matrix.app }} — skipping
         if: >
           (matrix.app == 'backend'  && needs.changes.outputs.backend  != 'true') ||
           (matrix.app == 'frontend' && needs.changes.outputs.frontend != 'true')
         run: echo "No relevant changes for ${{ matrix.app }}; passing."
 
-      # Real work only when the matching app DID change
       - uses: actions/setup-node@v4
         if: >
           (matrix.app == 'backend'  && needs.changes.outputs.backend  == 'true') ||
@@ -75,6 +72,17 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+
+      # 👇 Contracts install + build, force working-directory to repo root
+      - name: Install contracts deps
+        if: matrix.app == 'backend' && needs.changes.outputs.backend == 'true'
+        working-directory: .
+        run: npm install --no-audit --no-fund --prefix apps/packages/contracts
+
+      - name: Build contracts
+        if: matrix.app == 'backend' && needs.changes.outputs.backend == 'true'
+        working-directory: .
+        run: npm run build --prefix apps/packages/contracts
 
       - run: npm ci --no-audit --no-fund
         if: >
@@ -173,19 +181,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
 
-      # 👇 Add this step right after checkout
-      - name: Create CI .env
-        working-directory: docker
+      - name: Write docker/.env
         run: |
-          cat > .env <<'EOF'
+          mkdir -p docker
+          cat > docker/.env <<'EOF'
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB=${{ secrets.POSTGRES_DB }}
           POSTGRES_HOST=db
           POSTGRES_PORT=5432
-
-          PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
-          PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
 
           MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_INITDB_ROOT_USERNAME }}
           MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}
@@ -195,26 +199,35 @@ jobs:
           MONGO_EXPRESS_USER=${{ secrets.MONGO_EXPRESS_USER }}
           MONGO_EXPRESS_PASSWORD=${{ secrets.MONGO_EXPRESS_PASSWORD }}
 
+          PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
+          PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
+
           RUST_SVC_URL=http://stats_rs:9000
           PLOT_SVC_URL=http://plots_py:7000
-          VITE_API_URL=http://backend:8080
+
+          NO_DB=1
+          FAKE_SERVICES=1
           EOF
 
       - name: Validate compose
         working-directory: docker
         run: docker compose config
 
-      - name: Build with cache
-        working-directory: docker
-        run: |
-          docker buildx bake \
-          --allow=fs.read=../apps/backend \
-          --allow=fs.read=../apps/frontend \
-          --allow=fs.read=../apps/plots_py \
-          --allow=fs.read=../apps/stats_rs \
-          --set *.cache-from=type=gha,scope=statsapp \
-          --set *.cache-to=type=gha,scope=statsapp,mode=max \
-          --set plots_py.no-cache=true
+      - name: Build with bake
+        uses: docker/bake-action@v5
+        with:
+          workdir: docker
+          files: docker-compose.yml
+          set: |
+            *.cache-from=type=gha,scope=statsapp
+            *.cache-to=type=gha,scope=statsapp,mode=max
+            plots_py.no-cache=true
+          allow: |
+            fs.read=..
+            fs.read=../apps/backend
+            fs.read=../apps/frontend
+            fs.read=../apps/plots_py
+            fs.read=../apps/stats_rs
 
   smoke:
     name: Smoke Test
@@ -242,6 +255,8 @@ jobs:
           MONGO_EXPRESS_PASSWORD=${{ secrets.MONGO_EXPRESS_PASSWORD }}
           RUST_SVC_URL=http://stats_rs:9000
           PLOT_SVC_URL=http://plots_py:7000
+          NO_DB=1
+          FAKE_SERVICES=1
           EOF
 
       - name: Debug services
@@ -309,13 +324,13 @@ jobs:
           wait_healthy plots_py
           wait_healthy stats_rs
 
-      - name: Curl health endpoints (resilient wget)
+      - name: Curl health endpoints (resilient curl)
         working-directory: docker
         run: |
           set -e
-          docker compose exec -T backend  sh -lc 'for i in $(seq 1 40); do wget -qO- http://127.0.0.1:8080/health && exit 0 || sleep 2; done; exit 1'
-          docker compose exec -T plots_py sh -lc 'for i in $(seq 1 40); do wget -qO- http://127.0.0.1:7000/health && exit 0 || sleep 2; done; exit 1'
-          docker compose exec -T stats_rs sh -lc 'for i in $(seq 1 20); do wget -qO- http://127.0.0.1:9000/health && exit 0 || sleep 2; done; exit 0'
+          docker compose exec -T backend  sh -lc 'for i in $(seq 1 40); do curl -fsS http://127.0.0.1:8080/health && exit 0 || sleep 2; done; exit 1'
+          docker compose exec -T plots_py sh -lc 'for i in $(seq 1 40); do curl -fsS http://127.0.0.1:7000/health && exit 0 || sleep 2; done; exit 1'
+          docker compose exec -T stats_rs sh -lc 'for i in $(seq 1 20); do curl -fsS http://127.0.0.1:9000/health && exit 0 || sleep 2; done; exit 0'
 
       - name: Stop stack
         if: always()
