@@ -204,17 +204,20 @@ jobs:
         working-directory: docker
         run: docker compose config
 
-      - name: Build with cache
-        working-directory: docker
-        run: |
-          docker buildx bake \
-          --allow=fs.read=../apps/backend \
-          --allow=fs.read=../apps/frontend \
-          --allow=fs.read=../apps/plots_py \
-          --allow=fs.read=../apps/stats_rs \
-          --set *.cache-from=type=gha,scope=statsapp \
-          --set *.cache-to=type=gha,scope=statsapp,mode=max \
-          --set plots_py.no-cache=true
+      - name: Build with bake
+        uses: docker/bake-action@v5
+        with:
+          files: docker-compose.yml
+          set: |
+            *.cache-from=type=gha,scope=statsapp
+            *.cache-to=type=gha,scope=statsapp,mode=max
+            plots_py.no-cache=true
+          allow: |
+            fs.read=..
+            fs.read=../apps/backend
+            fs.read=../apps/frontend
+            fs.read=../apps/plots_py
+            fs.read=../apps/stats_rs
 
   smoke:
     name: Smoke Test
