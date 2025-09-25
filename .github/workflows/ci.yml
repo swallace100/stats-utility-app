@@ -188,6 +188,9 @@ jobs:
           MONGO_HOST=mongo
           MONGO_PORT=27017
 
+          MONGO_EXPRESS_USER=${{ secrets.MONGO_EXPRESS_USER }}
+          MONGO_EXPRESS_PASSWORD=${{ secrets.MONGO_EXPRESS_PASSWORD }}
+
           PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
           PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
 
