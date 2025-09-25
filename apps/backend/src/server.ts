@@ -8,14 +8,17 @@ import { UploadJobInput, type TUploadResponse } from "@your-scope/contracts";
 import { registerDocs } from "./docs";
 
 // ----- Env & constants -----
+const cwd = process.cwd();
+
 const {
   PORT = "8080",
   MONGO_URL = "mongodb://mongo:27017/stats",
   RUST_SVC_URL = "http://stats_rs:9000",
   PLOTS_PY_URL = "http://plots_py:7000",
-  UPLOAD_DIR = "/data/uploads",
-  PLOTS_DIR = "/data/plots",
 } = process.env;
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(cwd, "data", "uploads");
+const PLOTS_DIR  = process.env.PLOTS_DIR  || path.join(cwd, "data", "plots");
 
 const NO_DB = process.env.NO_DB === "1";             // skip Mongo, use in-memory jobs
 const FAKE_SERVICES = process.env.FAKE_SERVICES === "1"; // don't call Rust/Python

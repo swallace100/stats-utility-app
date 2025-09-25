@@ -33,8 +33,8 @@ services:
       - NO_DB=1            # Use in-memory jobs; don't connect to Mongo
       - FAKE_SERVICES=1    # Don't call Rust/Python during smoke
       - PORT=8080
-      - UPLOAD_DIR=/data/uploads
-      - PLOTS_DIR=/data/plots
+      - UPLOAD_DIR=/app/data/uploads
+      - PLOTS_DIR=/app/data/plots
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
       interval: 10s
@@ -42,7 +42,7 @@ services:
       retries: 6
       start_period: 15s
     volumes:
-      - data:/data
+      - ./data:/app/data
     depends_on:
       db:
         condition: service_healthy

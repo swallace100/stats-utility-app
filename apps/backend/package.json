@@ -29,11 +29,13 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.1.0",
     "@your-scope/contracts": "file:../packages/contracts",
     "express": "^5.1.0",
     "mongodb": "^6.0.0",
     "multer": "^2.0.2",
+    "stats-utility-app": "file:../..",
     "swagger-ui-express": "^5.0.1",
-    "zod": "^3.22.2"
+    "zod": "^4.1.11"
   }
 }

@@ -1,9 +1,12 @@
 import { z } from "zod";
-import { OpenAPIRegistry, OpenApiGeneratorV3 } from "@asteasolutions/zod-to-openapi";
+import { OpenAPIRegistry, OpenApiGeneratorV3, extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { UploadJobInput, UploadResponse, JobItem } from "./job";
+
+extendZodWithOpenApi(z);
 
 const registry = new OpenAPIRegistry();
 
+// Register raw schemas
 registry.register("UploadJobInput", UploadJobInput);
 registry.register("UploadResponse", UploadResponse);
 registry.register("JobItem", JobItem);
@@ -13,10 +16,7 @@ const JobIdParam = z.object({ jobId: z.string() });
 
 const UploadMultipart = z.object({
   file: z.string().openapi({ type: "string", format: "binary" }),
-  // ✅ any of these three work; choose one:
-  // metadata: UploadJobInput.openapi("UploadJobInput"),
-  // metadata: UploadJobInput.openapi({ refId: "UploadJobInput" }),
-  metadata: UploadJobInput,
+  metadata: UploadJobInput, // ✅ keep schema itself, not UploadJobInput.openapi()
 });
 
 registry.registerPath({
@@ -24,10 +24,10 @@ registry.registerPath({
   path: "/upload",
   request: {
     body: {
+      required: true,
       content: {
         "multipart/form-data": { schema: UploadMultipart },
       },
-      required: true,
     },
   },
   responses: {

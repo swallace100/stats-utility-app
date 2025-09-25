@@ -1,12 +1,14 @@
 import { z } from "zod";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+
+// Extend BEFORE creating any schemas
 extendZodWithOpenApi(z);
 
 export const JobKind = z.enum(["stats", "plot"]);
 
 export const UploadJobInput = z.object({
   kind: JobKind,
-  params: z.object({}).catchall(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const UploadResponse = z.object({
@@ -21,7 +23,7 @@ export const JobItem = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   error: z.string().optional(),
-  result: z.unknown().optional(), // or z.any()
+  result: z.unknown().optional(),
 });
 
 export type TUploadJobInput = z.infer<typeof UploadJobInput>;

@@ -1,22 +1,32 @@
 {
   "name": "@your-scope/contracts",
   "version": "1.0.0",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc -p tsconfig.build.json",
-    "clean": "rimraf dist || rm -rf dist"
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist || rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
     "@asteasolutions/zod-to-openapi": "^8.1.0",
     "zod": "^4.1.11"
   },
+  "dependencies": {
+    "stats-utility-app": "file:../../.."
+  },
   "devDependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.1.0",
+    "rimraf": "^6.0.1",
     "typescript": "^5.4.0"
   }
 }
