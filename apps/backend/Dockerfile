@@ -18,8 +18,9 @@ WORKDIR /app
 # bring in the contracts sources from the build context
 COPY apps/packages/contracts apps/packages/contracts
 WORKDIR /app/apps/packages/contracts
-RUN npm ci --no-audit --no-fund
-RUN npm run build  # should emit dist/ + d.ts
+# was: RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
+RUN npm run build
 
 # ---------- build backend ----------
 FROM node:20.14-alpine AS build
