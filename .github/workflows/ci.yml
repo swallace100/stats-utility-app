@@ -252,6 +252,8 @@ jobs:
           MONGO_EXPRESS_PASSWORD=${{ secrets.MONGO_EXPRESS_PASSWORD }}
           RUST_SVC_URL=http://stats_rs:9000
           PLOT_SVC_URL=http://plots_py:7000
+          NO_DB=1
+          FAKE_SERVICES=1
           EOF
 
       - name: Debug services
