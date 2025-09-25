@@ -45,7 +45,7 @@ RUN cat > tsconfig.build.local.json <<'EOF'
 {
   "extends": "./tsconfig.build.json",
   "compilerOptions": {
-    "rootDir": ".",
+    "rootDir": "src",
     "baseUrl": ".",
     "paths": {
       "@your-scope/contracts": ["../packages/contracts/dist"],
