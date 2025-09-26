@@ -6,13 +6,19 @@ on:
     paths:
       - "apps/**"
       - "docker/**"
-      - ".github/workflows/**"
+      - ".github/**"
+      - "docs/**"
+      - "README.md"
+      - "CONTRIBUTING.md"
   pull_request:
     branches: [main]
     paths:
       - "apps/**"
       - "docker/**"
-      - ".github/workflows/**"
+      - ".github/**"
+      - "docs/**"
+      - "README.md"
+      - "CONTRIBUTING.md"
 
 concurrency:
   group: ci-${{ github.ref }}
