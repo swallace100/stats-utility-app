@@ -1,3 +1,2 @@
 [toolchain]
-channel = "nightly"   # or a specific date, e.g., "nightly-2025-09-01"
-components = ["rustfmt", "clippy"]
+channel = "stable"
