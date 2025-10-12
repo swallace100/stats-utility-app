@@ -25,7 +25,7 @@ async fn health_ok() {
     let app = make_app();
 
     let res = app
-        .oneshot(Request::get("/api/v1/healthz").body(Body::empty()).unwrap())
+        .oneshot(Request::get("/api/v1/health").body(Body::empty()).unwrap())
         .await
         .unwrap();
 

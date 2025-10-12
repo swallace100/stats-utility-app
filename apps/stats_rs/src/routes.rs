@@ -123,8 +123,8 @@ pub async fn openapi() -> impl IntoResponse {
         "openapi": "3.0.3",
         "info": { "title": "stats_rs", "version": env!("CARGO_PKG_VERSION") },
         "paths": {
-            "/api/v1/healthz": { "get": { "summary": "Health check", "responses": { "200": { "description": "OK" } } } },
-            "/api/v1/readyz":  { "get": { "summary": "Readiness check", "responses": { "200": { "description": "OK" } } } },
+            "/api/v1/health": { "get": { "summary": "Health check", "responses": { "200": { "description": "OK" } } } },
+            "/api/v1/ready":  { "get": { "summary": "Readiness check", "responses": { "200": { "description": "OK" } } } },
             "/api/v1/describe": {
                 "post": {
                     "summary": "Compute stats for JSON array of numbers",
