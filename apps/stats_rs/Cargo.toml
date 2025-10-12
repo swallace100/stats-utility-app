@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = { version = "0.8", features = ["json"] }
-tokio = { version = "1.47.1", features = ["rt-multi-thread","macros"] }
+tokio = { version = "1.47.1", features = ["rt-multi-thread","macros","signal"] }
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = "1.0.143"
 schemars = { version = "1.0.4", features = ["derive"] }
@@ -13,8 +13,23 @@ thiserror = "2.0.16"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 csv = "1.3"
+tower-http = { version ="0.6.6", features = [
+    "trace",
+    "cors",
+    "timeout",
+    "compression-full",
+] }
+anyhow = "1.0.100"
+dotenvy = "0.15.7"
 
 [dev-dependencies]
 tower = "0.5"
 http-body-util = "0.1"
+proptest = "1"         # (later) property tests
+rstest   = "0.22"      # (optional) paramized tests
 
+[features]
+default = []
+rag = []        # enables RAG metrics route + stats::rag
+docs = []       # enables /docs (routes::docs_ui)
+metrics = []    # enables /metrics (routes::prom_metrics)
