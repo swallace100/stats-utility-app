@@ -62,7 +62,7 @@ EXPOSE 9000
 
 # Robust healthcheck (gives CI runners time to warm up)
 HEALTHCHECK --interval=5s --timeout=2s --retries=20 --start-period=20s \
-    CMD curl -fsS http://127.0.0.1:9000/health || exit 1
+    CMD curl -fsS http://127.0.0.1:9000/api/v1/health || exit 1
 
 ENTRYPOINT ["/usr/bin/tini","--"]
 CMD ["stats_rs"]

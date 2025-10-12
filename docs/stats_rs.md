@@ -20,5 +20,5 @@ pub fn ols_simple(x: &[f64], y: &[f64]) -> OlsOut { /* beta0, beta1, ... */ }
 
 ```bash
 cargo run
-curl -fsS http://localhost:9000/health
+curl -fsS http://localhost:9000/api/v1/health
 ```
