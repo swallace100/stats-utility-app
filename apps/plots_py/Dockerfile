@@ -11,21 +11,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- production runtime ---
 FROM base AS runtime
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install runtime deps first for better layer caching
+COPY requirements.txt /app/plots_py/requirements.txt
+RUN pip install --no-cache-dir -r /app/plots_py/requirements.txt
+
+# Matplotlib backend for headless
 ENV MPLBACKEND=Agg
-COPY . .
+
+# Copy the service code (build context is apps/plots_py)
+COPY . /app/plots_py
+
+# Ensure package exists (safe if already present)
+RUN python -c "import pathlib; pathlib.Path('/app/plots_py/__init__.py').touch()"
+
+# Make the package importable
+ENV PYTHONPATH=/app
+
+# Create output/cache dir so your volume mount has a target
+RUN mkdir -p /app/out
+
 EXPOSE 7000
 
-# Real healthcheck: expects 200 from /health
-HEALTHCHECK --interval=5s --timeout=3s --retries=5 \
-    CMD wget -qO- http://127.0.0.1:7000/health || exit 1
+# Run as a package module so relative imports (from .models) work
+CMD ["uvicorn","plots_py.main:app","--host","0.0.0.0","--port","7000"]
 
-CMD ["uvicorn","main:app","--host","0.0.0.0","--port","7000"]
-
-# --- test stage (what compose.test.yml targets) ---
+# --- test stage (optional; only used if your compose targets it) ---
 FROM base AS test
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements-dev.txt
-COPY . .
-CMD ["pytest","-q"]
+COPY requirements.txt requirements-dev.txt /app/plots_py/
+RUN pip install --no-cache-dir -r /app/plots_py/requirements-dev.txt
+COPY . /app/plots_py
+RUN python -c "import pathlib; pathlib.Path('/app/plots_py/__init__.py').touch()"
+ENV PYTHONPATH=/app
+WORKDIR /app
+CMD ["pytest","-q","plots_py/tests"]
