@@ -24,8 +24,8 @@ pub fn build_app(state: Arc<AppState>) -> Router {
     // --- v1 API ---
     let v1 = Router::new()
         // health/readiness
-        .route("/healthz", get(routes::health))
-        .route("/readyz", get(routes::ready))
+        .route("/health", get(routes::health))
+        .route("/ready", get(routes::ready))
         // existing describe endpoints
         .route("/describe", post(routes::describe))
         .route("/describe-csv", post(routes::describe_csv))
