@@ -279,36 +279,24 @@ jobs:
         run: |
           set -euo pipefail
           COMPOSE_FILE="-f docker-compose.yml"
+
           echo "== Compose services (from config) =="
           docker compose $COMPOSE_FILE config --services
-          # helper: wait until a service is healthy (or has no healthcheck -> 'none')
+
           wait_healthy () {
             local svc_raw="$1"
-            # trim potential CRLF from YAML line endings
             local svc="$(echo "$svc_raw" | tr -d '\r')"
-            # validate service exists in config
             if ! docker compose $COMPOSE_FILE config --services | tr -d '\r' | grep -qx "$svc"; then
-              echo "Service '$svc' not found in compose config. Available:"
-              docker compose $COMPOSE_FILE config --services
-              exit 1
+              echo "Service '$svc' not found in compose config."; docker compose $COMPOSE_FILE config --services; exit 1
             fi
-            # ensure it's up
             docker compose $COMPOSE_FILE up -d "$svc"
-            # get container id
             local id
             id="$(docker compose $COMPOSE_FILE ps -q "$svc" | tr -d '\r')"
             if [ -z "$id" ]; then
-              echo "No container id yet for '$svc'; bringing up again..."
-              docker compose $COMPOSE_FILE up -d "$svc"
-              id="$(docker compose $COMPOSE_FILE ps -q "$svc" | tr -d '\r')"
-            fi
-            if [ -z "$id" ]; then
-              echo "Still no container id for '$svc'. Dumping ps:"
-              docker compose $COMPOSE_FILE ps
-              exit 1
+              echo "No container id yet for '$svc'"; docker compose $COMPOSE_FILE ps; exit 1
             fi
             echo "Waiting for $svc ($id) to be healthy..."
-            for i in {1..60}; do
+            for i in {1..90}; do
               status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")"
               echo "  $svc health: $status"
               if [ "$status" = "healthy" ] || [ "$status" = "none" ]; then
@@ -317,24 +305,33 @@ jobs:
               sleep 2
             done
             echo "Timed out waiting for $svc"
-            return 1
+            echo "--- inspect health ---"
+            docker inspect -f '{{json .State.Health}}' "$id" | python3 -m json.tool || true
+            echo "--- last 80 logs ---"
+            docker compose $COMPOSE_FILE logs --no-log-prefix --tail=80 "$svc" || true
+            exit 1
           }
+
           # bring up DBs first and wait
           docker compose $COMPOSE_FILE up -d db mongo
           wait_healthy db
           wait_healthy mongo
+
           # bring up app services
           docker compose $COMPOSE_FILE up -d backend plots_py stats_rs frontend
-          # wait for each
+
+          # wait for each (stats_rs uses /api/v1/health)
           wait_healthy backend
           wait_healthy plots_py
-          docker compose -f docker-compose.yml up -d stats_rs
-          id=$(docker compose -f docker-compose.yml ps -q stats_rs)
+
+          # quick inline sanity check for stats_rs before waiting
+          id="$(docker compose $COMPOSE_FILE ps -q stats_rs)"
           echo "Health now:"; docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id"
-          echo "Try curl from inside container:"
-          docker compose -f docker-compose.yml exec -T stats_rs sh -lc 'curl -i http://127.0.0.1:9000/api/v1/health || true'
-          echo "Env visible to container (snippet):"
-          docker compose -f docker-compose.yml exec -T stats_rs env | grep -E 'NO_DB|FAKE_SERVICES|PORT|HOST' || true
+          echo "Try curl from inside stats_rs:"
+          docker compose $COMPOSE_FILE exec -T stats_rs sh -lc 'curl -i http://127.0.0.1:9000/api/v1/health || true'
+          echo "Env visible to stats_rs (snippet):"
+          docker compose $COMPOSE_FILE exec -T stats_rs env | grep -E 'NO_DB|FAKE_SERVICES|PORT|HOST' || true
+
           wait_healthy stats_rs
 
       - name: Show effective stats_rs service config

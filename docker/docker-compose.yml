@@ -68,10 +68,10 @@ services:
       - data:/data
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/api/v1/health"]
-      interval: 20s
+      interval: 5s
       timeout: 3s
-      retries: 5
-      start_period: 10s
+      retries: 20
+      start_period: 30s
     networks: [appnet]
 
   plots_py:
