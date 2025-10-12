@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
+
 import NavBar from "./components/NavBar";
-import { ping } from "./lib/api";
 import UploadCsvCard from "./components/UploadCsvCard";
+import { ping } from "./lib/api";
 
 export default function App() {
   const [healthy, setHealthy] = useState<boolean | null>(null);
 
   useEffect(() => {
-    ping().then((r) => setHealthy(r.ok)).catch(() => setHealthy(false));
+    ping()
+      .then((r) => setHealthy(r.ok))
+      .catch(() => setHealthy(false));
   }, []);
 
   return (
@@ -20,9 +23,11 @@ export default function App() {
             Backend health:{" "}
             <span
               className={
-                healthy ? "text-green-600"
-                : healthy === false ? "text-red-600"
-                : ""
+                healthy
+                  ? "text-green-600"
+                  : healthy === false
+                    ? "text-red-600"
+                    : ""
               }
             >
               {healthy === null ? "checking..." : healthy ? "OK" : "DOWN"}

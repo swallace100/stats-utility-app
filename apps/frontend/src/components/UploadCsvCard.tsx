@@ -1,12 +1,19 @@
-import * as React from "react";
 import Papa from "papaparse";
-import { uploadCsv, type UploadKind } from "@/lib/api";
+import * as React from "react";
+
 import CSVPreview from "./CSVPreview";
+
+import { uploadCsv, type UploadKind } from "@/lib/api";
+
+type Cell = string; // dynamicTyping: false → Papa gives strings
+type ArrayRow = readonly Cell[];
+type ObjectRow = Readonly<Record<string, Cell>>;
+type Row = ArrayRow | ObjectRow;
 
 export default function UploadCsvCard() {
   const [file, setFile] = React.useState<File | null>(null);
   const [headers, setHeaders] = React.useState<string[] | null>(null);
-  const [rows, setRows] = React.useState<Array<Record<string, string> | string[]>>([]);
+  const [rows, setRows] = React.useState<Row[]>([]);
   const [kind, setKind] = React.useState<UploadKind>("stats");
   const [params, setParams] = React.useState<string>("{}");
   const [submitting, setSubmitting] = React.useState(false);
@@ -21,26 +28,28 @@ export default function UploadCsvCard() {
     setError(null);
     if (!f) return;
 
-    Papa.parse(f, {
+    // Try headered parse first
+    Papa.parse<ObjectRow>(f, {
       header: true,
       dynamicTyping: false,
       worker: false,
       skipEmptyLines: "greedy",
       complete: (res) => {
         if (res.errors?.length) {
-          Papa.parse(f, {
+          // Fallback: no headers → array rows
+          Papa.parse<ArrayRow>(f, {
             header: false,
             dynamicTyping: false,
             worker: false,
             skipEmptyLines: "greedy",
             complete: (res2) => {
               setHeaders(null);
-              setRows((res2.data as any[]) ?? []);
+              setRows(res2.data ?? []);
             },
           });
           return;
         }
-        const data = (res.data as Record<string, string>[]) ?? [];
+        const data = res.data ?? [];
         const first = data[0] || {};
         setHeaders(Object.keys(first));
         setRows(data);
@@ -68,8 +77,8 @@ export default function UploadCsvCard() {
       setSubmitting(true);
       const resp = await uploadCsv({ file, kind, params: parsedParams });
       setResult({ jobId: resp.jobId });
-    } catch (err: any) {
-      setError(err?.message || "Upload failed.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setSubmitting(false);
     }
@@ -90,7 +99,11 @@ export default function UploadCsvCard() {
             onChange={(e) => onPick(e.currentTarget.files?.[0] ?? null)}
             className="block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border file:bg-muted file:text-foreground file:hover:bg-muted/80"
           />
-          <a href="/sample.csv" download className="text-sm underline underline-offset-4">
+          <a
+            href="/sample.csv"
+            download
+            className="text-sm underline underline-offset-4"
+          >
             Download sample.csv
           </a>
         </div>

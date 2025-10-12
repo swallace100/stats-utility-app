@@ -146,7 +146,7 @@ mod edge_tests {
         let z_empty = robust_zscores_mad(&empty);
         assert!(z_empty.is_empty());
 
-        let consts = vec![3.14, 3.14, 3.14, 3.14];
+        let consts = vec![3.0, 3.0, 3.0, 3.0];
         let zc = robust_zscores_mad(&consts);
         assert_eq!(zc.len(), consts.len());
         assert!(zc.iter().all(|&v| v.abs() <= EPS_TIGHT)); // scale==0 → zeros

@@ -5,13 +5,18 @@ pub struct OnlineMeanVar {
     mean: f64,
     m2: f64,
 }
-impl OnlineMeanVar {
-    pub fn new() -> Self {
+impl Default for OnlineMeanVar {
+    fn default() -> Self {
         Self {
             n: 0,
             mean: 0.0,
             m2: 0.0,
         }
+    }
+}
+impl OnlineMeanVar {
+    pub fn new() -> Self {
+        Self::default()
     }
     pub fn push(&mut self, x: f64) {
         self.n += 1;

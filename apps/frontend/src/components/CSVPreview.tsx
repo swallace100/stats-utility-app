@@ -1,20 +1,35 @@
 import * as React from "react";
 
+type Cell = string | number | boolean | null | undefined;
+type ArrayRow = readonly Cell[];
+type ObjectRow = Readonly<Record<string, Cell>>;
+type Row = ArrayRow | ObjectRow;
+
 type Props = {
   headers: string[] | null;
-  rows: Array<Record<string, string> | string[]>;
+  rows: Row[];
 };
 
+const isObjectRow = (r: Row): r is ObjectRow => !Array.isArray(r);
+
+const getCell = (row: Row, j: number, h: string): Cell =>
+  isObjectRow(row) ? (row[h] ?? "") : (row[j] ?? "");
+
 export default function CSVPreview({ headers, rows }: Props) {
-  if (!rows.length) return null;
+  // Hooks must be called unconditionally on every render
+  const first20 = React.useMemo(() => rows.slice(0, 20), [rows]);
 
-  const first20 = rows.slice(0, 20);
+  const colHeaders: string[] = React.useMemo(() => {
+    if (headers) return headers;
+    const first = first20[0];
+    if (!first) return [];
+    return Array.isArray(first)
+      ? first.map((_, i) => `Col ${i + 1}`)
+      : Object.keys(first);
+  }, [headers, first20]);
 
-  const colHeaders =
-    headers ??
-    (Array.isArray(first20[0])
-      ? (first20[0] as string[]).map((_, i) => `Col ${i + 1}`)
-      : Object.keys(first20[0] as Record<string, string>));
+  // Now it’s safe to return early
+  if (rows.length === 0) return null;
 
   return (
     <div className="mt-4 overflow-x-auto rounded-xl border">
@@ -32,8 +47,8 @@ export default function CSVPreview({ headers, rows }: Props) {
           {first20.map((row, i) => (
             <tr key={i} className="odd:bg-background even:bg-muted/10">
               {colHeaders.map((h, j) => (
-                <td key={j} className="px-3 py-2">
-                  {Array.isArray(row) ? (row[j] ?? "") : (row as any)[h] ?? ""}
+                <td key={h} className="px-3 py-2">
+                  {getCell(row, j, h)}
                 </td>
               ))}
             </tr>

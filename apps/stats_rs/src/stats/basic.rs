@@ -236,13 +236,13 @@ mod more_tests {
     #[test]
     fn min_max_range_negatives_and_constants() {
         let xs = vec![-5.0, -1.0, 0.0, 2.0];
+        let same = vec![3.0, 3.0, 3.0];
         approx!(min(&xs), -5.0, EPS_TIGHT);
         approx!(max(&xs), 2.0, EPS_TIGHT);
         approx!(range(&xs), 7.0, EPS_TIGHT);
 
-        let same = vec![3.14, 3.14, 3.14];
-        approx!(min(&same), 3.14, EPS_TIGHT);
-        approx!(max(&same), 3.14, EPS_TIGHT);
+        approx!(min(&same), 3.0, EPS_TIGHT);
+        approx!(max(&same), 3.0, EPS_TIGHT);
         approx!(range(&same), 0.0, EPS_TIGHT);
     }
 

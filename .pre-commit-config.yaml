@@ -1,0 +1,126 @@
+# Run:  pip install pre-commit
+#       pre-commit install
+#       pre-commit run --all-files
+default_stages: [pre-commit]
+minimum_pre_commit_version: "3.5.0"
+
+# Avoid huge/vendor dirs
+exclude: |
+  (?x)^(
+    node_modules/|
+    .venv/|
+    venv/|
+    dist/|
+    build/|
+    coverage/|
+    target/|
+    .*\.min\.(js|css)$
+  )
+
+repos:
+  # --- Generic hygiene ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  # --- Python (Black + Ruff) ---
+  - repo: https://github.com/psf/black
+    rev: 25.9.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  # --- Rust (cargo fmt + clippy) ---
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt --check
+        entry: cargo
+        language: system
+        pass_filenames: false
+        args:
+          - fmt
+          - --all
+          - --manifest-path
+          - apps/stats_rs/Cargo.toml
+          - --
+          - --check
+        types: [rust]
+
+      - id: cargo-clippy
+        name: cargo clippy (deny warnings)
+        entry: cargo
+        language: system
+        pass_filenames: false
+        args:
+          - clippy
+          - --workspace
+          - --all-targets
+          - --manifest-path
+          - apps/stats_rs/Cargo.toml
+          - --
+          - -D
+          - warnings
+        types: [rust]
+
+  # --- JS/TS/React (Prettier + ESLint) ---
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.6.2 # known-good tag on that fork
+    hooks:
+      - id: prettier
+        files: "\\.(js|jsx|ts|tsx|css|scss|md|json|yml|yaml)$"
+        # optional plugins:
+        # additional_dependencies:
+        #   - "prettier-plugin-tailwindcss@0.5.14"
+
+  # (ESLint uses your repo config; align versions with package.json)
+  - repo: local
+    hooks:
+      - id: eslint-frontend
+        name: eslint (frontend)
+        language: system
+        entry: npx
+        args:
+          - --yes
+          - --prefix
+          - apps/frontend
+          - eslint
+          - --config
+          - apps/frontend/eslint.config.js
+          - --ext
+          - .js,.jsx,.ts,.tsx
+          - --max-warnings=0
+          - apps/frontend
+        pass_filenames: false
+        types_or: [javascript, jsx, ts, tsx]
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+
+  # Markdown lint (official CLI repo)
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        # auto-fix + allow long lines (MD013)
+        args: ["--fix", "--disable", "MD013", "--"]
+        files: "\\.(md|markdown)$"
+
+  # --- Secrets scan (optional but recommended) ---
+  - repo: https://github.com/zricethezav/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks

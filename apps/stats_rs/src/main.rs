@@ -27,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
     let addr: SocketAddr = format!("{host}:{port}").parse()?;
 
     // App state + router
-    let state = Arc::new(AppState::default());
+    let state = Arc::new(AppState);
     let app = build_app(state);
 
     // Feature flags (compile-time)

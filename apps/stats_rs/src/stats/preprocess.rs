@@ -67,7 +67,7 @@ mod more_tests {
 
     #[test]
     fn constant_vector_behavior() {
-        let xs = vec![3.14, 3.14, 3.14];
+        let xs = vec![3.0, 3.0, 3.0];
         // zscores → zeros
         let z = zscores(&xs);
         assert!(z.iter().all(|&v| v.abs() <= EPS_TIGHT));

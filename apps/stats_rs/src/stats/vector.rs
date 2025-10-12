@@ -108,7 +108,7 @@ mod tests {
         approx!(dispersion, 2.0 / 3.0, EPS_TIGHT);
 
         // Centroid
-        let cent = centroid(&vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
+        let cent = centroid(&[vec![1.0, 2.0], vec![3.0, 4.0]]);
         assert_eq!(cent, vec![2.0, 3.0]);
 
         // Intra-cluster cosine
@@ -144,7 +144,7 @@ mod edge_tests {
     #[test]
     #[should_panic]
     fn centroid_mixed_dims_panics() {
-        let _ = centroid(&vec![vec![1.0, 2.0], vec![3.0]]); // ragged
+        let _ = centroid(&[vec![1.0, 2.0], vec![3.0]]); // ragged
     }
 
     // --- zero vectors & NaN conventions ---

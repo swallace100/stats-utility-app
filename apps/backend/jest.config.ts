@@ -8,8 +8,8 @@ const config: Config = {
   roots: ["<rootDir>"],
   // so imports like "../src/app" work
   moduleNameMapper: {
-    "^(\\.{1,2}/.*)$": "$1"
-  }
+    "^(\\.{1,2}/.*)$": "$1",
+  },
 };
 
 export default config;

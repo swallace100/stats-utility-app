@@ -208,7 +208,7 @@ mod edge_case_tests {
     #[test]
     fn pearson_and_spearman_constant_vectors_nan() {
         // std == 0 → pearson NaN
-        let xs = vec![3.14, 3.14, 3.14];
+        let xs = vec![3.0, 3.0, 3.0];
         let ys = vec![1.0, 2.0, 3.0];
         assert!(pearson_correlation(&xs, &ys).is_nan());
 

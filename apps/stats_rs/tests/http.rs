@@ -17,7 +17,7 @@ struct DescribeOut {
 }
 
 fn make_app() -> axum::Router {
-    build_app(Arc::new(AppState::default()))
+    build_app(Arc::new(AppState))
 }
 
 #[tokio::test]

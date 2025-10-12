@@ -1,5 +1,3 @@
-mod mods;
-
 /// Greedy MMR selection (cosine sim). Returns indices of chosen docs.
 pub fn mmr_select(cands: &[Vec<f64>], query: &[f64], lambda: f64, k: usize) -> Vec<usize> {
     assert!((0.0..=1.0).contains(&lambda));

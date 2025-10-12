@@ -9,7 +9,11 @@ export function registerDocs(app: express.Express) {
   app.get("/openapi.json", (_req, res) => res.json(doc));
 
   // serve Swagger UI
-  app.use("/docs", swaggerUi.serve, swaggerUi.setup(doc, {
-    explorer: true,
-  }));
+  app.use(
+    "/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(doc, {
+      explorer: true,
+    }),
+  );
 }
