@@ -43,14 +43,19 @@ uvicorn plots_py.main:app --reload --port 7000
 ### Run tests
 
 - Rust tests:
+
   ```bash
   cargo test
   ```
+
 - Node tests:
+
   ```bash
   npm test --workspace=backend
   ```
+
 - Python tests (if added):
+
   ```bash
   pytest
   ```

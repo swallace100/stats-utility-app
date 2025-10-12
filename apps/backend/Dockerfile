@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy manifests for both backend and contracts so npm can resolve file: dep
 # (build context must be repo root)
-COPY package*.json ./ 
+COPY package*.json ./
 COPY apps/backend/package*.json apps/backend/
 COPY apps/packages/contracts/package*.json apps/packages/contracts/
 

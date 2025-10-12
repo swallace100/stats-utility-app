@@ -16,7 +16,7 @@ export async function uploadCsv(opts: {
   form.append("file", opts.file);
   form.append(
     "metadata",
-    JSON.stringify({ kind: opts.kind, params: opts.params ?? {} })
+    JSON.stringify({ kind: opts.kind, params: opts.params ?? {} }),
   );
 
   const res = await fetch(`${API_URL}/upload`, {

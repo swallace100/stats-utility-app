@@ -7,9 +7,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
 
-    "rootDir": ".",               // <- include both src and tests
+    "rootDir": ".", // <- include both src and tests
     "outDir": "dist",
-    "noEmit": true,               // IDE/typecheck only
+    "noEmit": true, // IDE/typecheck only
     "types": ["node", "jest"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"],

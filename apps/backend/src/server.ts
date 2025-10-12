@@ -18,9 +18,9 @@ const {
 } = process.env;
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(cwd, "data", "uploads");
-const PLOTS_DIR  = process.env.PLOTS_DIR  || path.join(cwd, "data", "plots");
+const PLOTS_DIR = process.env.PLOTS_DIR || path.join(cwd, "data", "plots");
 
-const NO_DB = process.env.NO_DB === "1";             // skip Mongo, use in-memory jobs
+const NO_DB = process.env.NO_DB === "1"; // skip Mongo, use in-memory jobs
 const FAKE_SERVICES = process.env.FAKE_SERVICES === "1"; // don't call Rust/Python
 
 type JobStatus = "queued" | "running" | "succeeded" | "failed";
@@ -49,7 +49,9 @@ const nowISO = () => new Date().toISOString();
   if (NO_DB) {
     const Mem: Record<string, JobDoc> = {};
     Jobs = {
-      insertOne: async (doc: JobDoc) => { Mem[doc.jobId] = doc; },
+      insertOne: async (doc: JobDoc) => {
+        Mem[doc.jobId] = doc;
+      },
       updateOne: async (q: { jobId: string }, u: { $set: Partial<JobDoc> }) => {
         const j = Mem[q.jobId];
         if (j) Mem[q.jobId] = { ...j, ...u.$set };
@@ -58,7 +60,9 @@ const nowISO = () => new Date().toISOString();
         sort: () => ({
           limit: () => ({
             toArray: async () =>
-              Object.values(Mem).sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1)),
+              Object.values(Mem).sort((a, b) =>
+                a.createdAt > b.createdAt ? -1 : 1,
+              ),
           }),
         }),
       }),
@@ -100,14 +104,17 @@ const nowISO = () => new Date().toISOString();
   app.post("/upload", upload.single("file"), async (req, res) => {
     try {
       const metaStr = (req.body?.metadata ?? "").toString();
-      const parsed = UploadJobInput.safeParse(metaStr ? JSON.parse(metaStr) : {});
+      const parsed = UploadJobInput.safeParse(
+        metaStr ? JSON.parse(metaStr) : {},
+      );
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
       }
       const { kind, params } = parsed.data;
 
       const savedFilename = req.file?.filename;
-      if (!savedFilename) return res.status(400).json({ error: "file is required" });
+      if (!savedFilename)
+        return res.status(400).json({ error: "file is required" });
       const filePath = path.join(UPLOAD_DIR, savedFilename);
 
       // Create job
@@ -177,7 +184,7 @@ const nowISO = () => new Date().toISOString();
   async function processJob(job: JobDoc) {
     await Jobs.updateOne(
       { jobId: job.jobId },
-      { $set: { status: "running", updatedAt: nowISO() } }
+      { $set: { status: "running", updatedAt: nowISO() } },
     );
 
     try {
@@ -185,11 +192,14 @@ const nowISO = () => new Date().toISOString();
         const fake =
           job.kind === "stats"
             ? { mean: 28.3, variance: 42.0 }
-            : { imagePath: path.join(PLOTS_DIR, "fake_plot.png"), meta: { chart: "hist", col: "age" } };
+            : {
+                imagePath: path.join(PLOTS_DIR, "fake_plot.png"),
+                meta: { chart: "hist", col: "age" },
+              };
 
         await Jobs.updateOne(
           { jobId: job.jobId },
-          { $set: { status: "succeeded", result: fake, updatedAt: nowISO() } }
+          { $set: { status: "succeeded", result: fake, updatedAt: nowISO() } },
         );
         return;
       }
@@ -203,7 +213,7 @@ const nowISO = () => new Date().toISOString();
         const data = await r.json();
         await Jobs.updateOne(
           { jobId: job.jobId },
-          { $set: { status: "succeeded", result: data, updatedAt: nowISO() } }
+          { $set: { status: "succeeded", result: data, updatedAt: nowISO() } },
         );
       } else if (job.kind === "plot") {
         const r = await fetch(`${PLOTS_PY_URL}/plot`, {
@@ -214,7 +224,7 @@ const nowISO = () => new Date().toISOString();
         const data = await r.json(); // e.g., { imagePath, meta }
         await Jobs.updateOne(
           { jobId: job.jobId },
-          { $set: { status: "succeeded", result: data, updatedAt: nowISO() } }
+          { $set: { status: "succeeded", result: data, updatedAt: nowISO() } },
         );
       } else {
         throw new Error(`Unknown kind: ${job.kind}`);
@@ -222,7 +232,13 @@ const nowISO = () => new Date().toISOString();
     } catch (e: any) {
       await Jobs.updateOne(
         { jobId: job.jobId },
-        { $set: { status: "failed", error: String(e?.message || e), updatedAt: nowISO() } }
+        {
+          $set: {
+            status: "failed",
+            error: String(e?.message || e),
+            updatedAt: nowISO(),
+          },
+        },
       );
     }
   }

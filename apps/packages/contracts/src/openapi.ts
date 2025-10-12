@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { OpenAPIRegistry, OpenApiGeneratorV3, extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+  OpenAPIRegistry,
+  OpenApiGeneratorV3,
+  extendZodWithOpenApi,
+} from "@asteasolutions/zod-to-openapi";
 import { UploadJobInput, UploadResponse, JobItem } from "./job";
 
 extendZodWithOpenApi(z);
@@ -31,7 +35,10 @@ registry.registerPath({
     },
   },
   responses: {
-    202: { description: "Accepted", content: { "application/json": { schema: UploadResponse } } },
+    202: {
+      description: "Accepted",
+      content: { "application/json": { schema: UploadResponse } },
+    },
     400: { description: "Bad Request" },
   },
 });
@@ -40,7 +47,10 @@ registry.registerPath({
   method: "get",
   path: "/jobs",
   responses: {
-    200: { description: "OK", content: { "application/json": { schema: JobList } } },
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: JobList } },
+    },
   },
 });
 

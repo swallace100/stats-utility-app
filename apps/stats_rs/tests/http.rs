@@ -17,7 +17,7 @@ struct DescribeOut {
 }
 
 fn make_app() -> axum::Router {
-    build_app(Arc::new(AppState::default()))
+    build_app(Arc::new(AppState))
 }
 
 #[tokio::test]
@@ -25,7 +25,7 @@ async fn health_ok() {
     let app = make_app();
 
     let res = app
-        .oneshot(Request::get("/health").body(Body::empty()).unwrap())
+        .oneshot(Request::get("/api/v1/health").body(Body::empty()).unwrap())
         .await
         .unwrap();
 
@@ -40,7 +40,7 @@ async fn describe_json_ok() {
 
     let res = app
         .oneshot(
-            Request::post("/describe")
+            Request::post("/api/v1/describe")
                 .header("content-type", "application/json")
                 .body(Body::from("[1,2,3,4]"))
                 .unwrap(),
@@ -64,7 +64,7 @@ async fn describe_json_empty_is_400() {
 
     let res = app
         .oneshot(
-            Request::post("/describe")
+            Request::post("/api/v1/describe")
                 .header("content-type", "application/json")
                 .body(Body::from("[]"))
                 .unwrap(),
@@ -82,7 +82,7 @@ async fn describe_csv_ok_with_header() {
 
     let res = app
         .oneshot(
-            Request::post("/describe-csv")
+            Request::post("/api/v1/describe-csv")
                 .header("content-type", "text/csv")
                 .body(Body::from(csv))
                 .unwrap(),
@@ -107,7 +107,7 @@ async fn describe_csv_mixed_values_ignores_non_numeric() {
 
     let res = app
         .oneshot(
-            Request::post("/describe-csv")
+            Request::post("/api/v1/describe-csv")
                 .header("content-type", "text/csv")
                 .body(Body::from(csv))
                 .unwrap(),
@@ -132,7 +132,7 @@ async fn describe_csv_no_numeric_400() {
 
     let res = app
         .oneshot(
-            Request::post("/describe-csv")
+            Request::post("/api/v1/describe-csv")
                 .header("content-type", "text/csv")
                 .body(Body::from(csv))
                 .unwrap(),
