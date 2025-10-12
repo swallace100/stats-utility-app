@@ -1,16 +1,19 @@
 # --- Build deps & cache cargo registry ---
-# Use nightly base so we don't "rustup install nightly" during build
-FROM rust:nightly-slim AS build
+FROM rust:1.90-slim AS build
 WORKDIR /src
 
-# Keep rustup/cargo/tmp on the same filesystem to avoid EXDEV issues
+# Keep rustup/cargo/tmp on the same filesystem to avoid EXDEV renames
 ENV RUSTUP_HOME=/opt/rustup \
     CARGO_HOME=/opt/cargo \
     TMPDIR=/opt/rustup/tmp
 RUN mkdir -p $RUSTUP_HOME/tmp $CARGO_HOME
 
-# (Optional) minimal profile is already implied on official images, but harmless:
-RUN rustup set profile minimal && rustc --version && cargo --version
+# Install nightly with retries; minimal profile; no dev components
+ARG RUST_TOOLCHAIN=nightly
+RUN rustup set profile minimal && \
+    for i in 1 2 3; do rustup toolchain install "$RUST_TOOLCHAIN" && break || sleep 3; done && \
+    rustup default "$RUST_TOOLCHAIN" && \
+    rustc --version && cargo --version
 
 # 1) Pre-build to cache dependencies
 COPY Cargo.toml Cargo.lock ./
@@ -23,14 +26,18 @@ COPY . .
 RUN cargo build --release --locked
 
 # --- Test image (optional) ---
-FROM rust:nightly-slim AS test
+FROM rust:1.90-slim AS test
 WORKDIR /src
 ENV RUSTUP_HOME=/opt/rustup \
     CARGO_HOME=/opt/cargo \
     TMPDIR=/opt/rustup/tmp
-RUN mkdir -p $RUSTUP_HOME/tmp $CARGO_HOME \
-    && rustup set profile minimal \
-    && rustc --version && cargo --version
+RUN mkdir -p $RUSTUP_HOME/tmp $CARGO_HOME
+
+ARG RUST_TOOLCHAIN=nightly
+RUN rustup set profile minimal && \
+    for i in 1 2 3; do rustup toolchain install "$RUST_TOOLCHAIN" && break || sleep 3; done && \
+    rustup default "$RUST_TOOLCHAIN" && \
+    rustc --version && cargo --version
 
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir -p src && echo "fn main(){}" > src/main.rs \
@@ -53,7 +60,7 @@ COPY --from=build /src/target/release/stats_rs /usr/local/bin/stats_rs
 USER 65532:65532
 EXPOSE 9000
 
-# Robust healthcheck for CI runners
+# Robust healthcheck (gives CI runners time to warm up)
 HEALTHCHECK --interval=5s --timeout=2s --retries=20 --start-period=20s \
     CMD curl -fsS http://127.0.0.1:9000/health || exit 1
 
