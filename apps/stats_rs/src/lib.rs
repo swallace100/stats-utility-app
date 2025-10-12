@@ -38,6 +38,13 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .route("/stats/summary", post(routes::stats_summary))
         .route("/stats/distribution", post(routes::stats_distribution))
         .route("/stats/pairwise", post(routes::stats_pairwise))
+        // new endpoints
+        .route("/stats/ecdf", post(routes::stats_ecdf))
+        .route("/stats/qq-normal", post(routes::stats_qq_normal))
+        .route("/stats/corr-matrix", post(routes::stats_corr_matrix))
+        .route("/stats/outliers", post(routes::stats_outliers))
+        .route("/stats/normalize", post(routes::stats_normalize))
+        .route("/stats/binrule", post(routes::stats_binrule))
         .with_state(state.clone());
 
     // RAG metrics are optional (behind the "rag" feature)
