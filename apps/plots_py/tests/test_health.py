@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from main import app
+from plots_py.main import app
 
 client = TestClient(app)
 
@@ -17,5 +17,10 @@ def test_render_basic():
 
 
 def test_render_csv_no_numeric():
-    r = client.post("/render-csv", data="a,b\nx,y\n")
+    r = client.request(
+        "POST",
+        "/render-csv",
+        content=b"a,b\nx,y\n",
+        headers={"content-type": "text/csv"},
+    )
     assert r.status_code == 400
