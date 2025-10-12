@@ -328,7 +328,22 @@ jobs:
           # wait for each
           wait_healthy backend
           wait_healthy plots_py
+          docker compose -f docker-compose.yml up -d stats_rs
+          id=$(docker compose -f docker-compose.yml ps -q stats_rs)
+          echo "Health now:"; docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id"
+          echo "Try curl from inside container:"
+          docker compose -f docker-compose.yml exec -T stats_rs sh -lc 'curl -i http://127.0.0.1:9000/api/v1/health || true'
+          echo "Env visible to container (snippet):"
+          docker compose -f docker-compose.yml exec -T stats_rs env | grep -E 'NO_DB|FAKE_SERVICES|PORT|HOST' || true
           wait_healthy stats_rs
+
+      - name: Show effective stats_rs service config
+        working-directory: docker
+        run: |
+          docker compose -f docker-compose.yml config | awk '
+            $0 ~ /^services:/ { in_services=1 }
+            in_services && $0 ~ /^  stats_rs:/ { in_stats=1 }
+            in_stats { print }'
 
       - name: Curl health endpoints (resilient curl)
         working-directory: docker

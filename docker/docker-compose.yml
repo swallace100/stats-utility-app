@@ -67,8 +67,7 @@ services:
     volumes:
       - data:/data
     healthcheck:
-      test:
-        ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/api/v1/health || exit 1"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/api/v1/health"]
       interval: 20s
       timeout: 3s
       retries: 5
