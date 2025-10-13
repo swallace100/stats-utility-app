@@ -1,37 +1,53 @@
 import js from "@eslint/js";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
-import tsParser from "@typescript-eslint/parser";
-import importPlugin from "eslint-plugin-import";
+import ts from "typescript-eslint";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
+import importPlugin from "eslint-plugin-import";
 import unusedImports from "eslint-plugin-unused-imports";
 import globals from "globals";
 
 export default [
-  // ignore heavy/build dirs
+  // Ignore generated / cache dirs & tooling configs
   {
     ignores: [
-      "node_modules/**",
-      "dist/**",
-      "build/**",
-      "coverage/**",
-      "**/target/**",
+      "**/*.d.ts",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/coverage/**",
+      "**/.vite/**",
+      "**/.turbo/**",
+      "**/.cache/**",
+      "vite.config.*",
+      "tailwind.config.*",
+      "postcss.config.*",
+      "eslint.config.*",
     ],
   },
+
+  // Only lint TS/TSX in src with the TS parser (no project to avoid path issues)
   {
-    files: ["**/*.{js,jsx,ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}"],
     languageOptions: {
-      ecmaVersion: 2023,
-      sourceType: "module",
-      globals: { ...globals.browser, ...globals.node },
-      parser: tsParser,
+      parser: ts.parser,
       parserOptions: {
-        // if your tsconfig is in frontend/tsconfig.json, ESLint will pick it up.
-        // If you use a special tsconfig for linting, set: project: "./tsconfig.eslint.json"
+        ecmaVersion: "latest",
+        sourceType: "module",
+        ecmaFeatures: { jsx: true },
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        fetch: "readonly",
+        Request: "readonly",
+        Response: "readonly",
+        RequestInit: "readonly",
+        FormData: "readonly",
+        URL: "readonly",
       },
     },
     plugins: {
-      "@typescript-eslint": tsPlugin,
+      "@typescript-eslint": ts.plugin,
       react,
       "react-hooks": reactHooks,
       import: importPlugin,
@@ -39,21 +55,12 @@ export default [
     },
     settings: { react: { version: "detect" } },
     rules: {
-      // JS recommended
       ...js.configs.recommended.rules,
-
-      // TS recommended (non-type-aware to avoid project config headaches)
-      ...tsPlugin.configs.recommended.rules,
-
-      // React
+      ...ts.configs.recommended.rules, // non-type-aware → no tsconfig path headaches
       ...react.configs.recommended.rules,
       "react/react-in-jsx-scope": "off",
-
-      // Hooks
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
-
-      // Imports & hygiene
       "unused-imports/no-unused-imports": "error",
       "import/order": [
         "warn",
@@ -61,6 +68,11 @@ export default [
           "newlines-between": "always",
           alphabetize: { order: "asc", caseInsensitive: true },
         },
+      ],
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
   },
