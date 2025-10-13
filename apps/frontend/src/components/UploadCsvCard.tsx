@@ -5,12 +5,17 @@ import CSVPreview from "./CSVPreview";
 
 import { uploadCsv, type UploadKind } from "@/lib/api";
 
-type Cell = string; // dynamicTyping: false → Papa gives strings
+type Cell = string;
 type ArrayRow = readonly Cell[];
 type ObjectRow = Readonly<Record<string, Cell>>;
 type Row = ArrayRow | ObjectRow;
 
-export default function UploadCsvCard() {
+type UploadCsvCardProps = {
+  // eslint-disable-next-line no-unused-vars
+  onAnalyzeFile?: (_file: File) => void | Promise<void>;
+};
+
+export default function UploadCsvCard({ onAnalyzeFile }: UploadCsvCardProps) {
   const [file, setFile] = React.useState<File | null>(null);
   const [headers, setHeaders] = React.useState<string[] | null>(null);
   const [rows, setRows] = React.useState<Row[]>([]);
@@ -26,7 +31,12 @@ export default function UploadCsvCard() {
     setRows([]);
     setResult(null);
     setError(null);
+
     if (!f) return;
+
+    // ✅ actively use the file
+    console.log(`Picked file: ${f.name}`);
+    onAnalyzeFile?.(f); // ✅ triggers the callback if provided
 
     // Try headered parse first
     Papa.parse<ObjectRow>(f, {
@@ -36,7 +46,6 @@ export default function UploadCsvCard() {
       skipEmptyLines: "greedy",
       complete: (res) => {
         if (res.errors?.length) {
-          // Fallback: no headers → array rows
           Papa.parse<ArrayRow>(f, {
             header: false,
             dynamicTyping: false,
@@ -61,10 +70,21 @@ export default function UploadCsvCard() {
     e.preventDefault();
     setError(null);
     setResult(null);
+
     if (!file) {
       setError("Please choose a CSV file first.");
       return;
     }
+
+    // ✅ trigger analysis before or after upload
+    if (onAnalyzeFile) {
+      try {
+        void onAnalyzeFile(file); // call safely, ignore returned promise
+      } catch {
+        console.warn("onAnalyzeFile failed, continuing upload");
+      }
+    }
+
     let parsedParams: Record<string, unknown> = {};
     try {
       parsedParams = params.trim() ? JSON.parse(params) : {};
@@ -85,9 +105,9 @@ export default function UploadCsvCard() {
   }
 
   return (
-    <div className="max-w-3xl p-6 rounded-2xl border bg-card">
+    <div className="max-w-3xl p-6 rounded-2xl border border-neutral-200 bg-white shadow-sm">
       <h2 className="text-xl font-semibold">Upload CSV</h2>
-      <p className="text-sm text-muted-foreground mb-4">
+      <p className="text-sm text-neutral-600 mb-4">
         Pick a CSV to preview the first 20 rows and send to the backend.
       </p>
 
@@ -134,9 +154,13 @@ export default function UploadCsvCard() {
           <button
             type="submit"
             disabled={!file || submitting}
-            className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
+            className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
+              !file || submitting
+                ? "bg-neutral-200 text-neutral-500 cursor-not-allowed"
+                : "bg-black text-white hover:opacity-90"
+            }`}
           >
-            {submitting ? "Uploading..." : "Send to /upload"}
+            {submitting ? "Uploading..." : "Send"}
           </button>
 
           {result && (
