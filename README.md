@@ -1,382 +1,82 @@
-# stats-utility-app
+# Stats Utility App
 
-A statistics utility apps that calculates a variable of statistics based on a user provided CSV. It is a React/Node application in a Docker container with Python and Rust based microservices for calculations.
+A containerized statistics app with a React frontend, Node backend, and Rust/Python microservices for computation and plotting.
 
-## Architecture (React + Node.js + Rust + Python + Docker)
+![Architecture Diagram](docs/architecture.png)
 
-[React UI]
-│
-▼
-[Node.js API] ──(RPC/HTTP/MsgQueue)──> [Rust stats svc]
-│ │
-│ (JSON results) └─ crunches stats (fast, deterministic)
-│
-└───> builds a chart spec ───────────────► [Python matplotlib svc]
-(JSON in) └─ renders PNG/SVG + returns URL/bytes
+## Features
 
-## Repo Layout
+- Upload CSV files and run common statistical tests (t-test, ANOVA, OLS, etc.)
+- Automatically generate APA-style summaries and publication-ready visualizations
+- Modular microservices design:
+  - 🦀 **Rust** → high-performance statistical kernels
+  - 🐍 **Python** → plotting and rendering via FastAPI + matplotlib
+- Full orchestration through **Docker Compose**
 
-stats-utility/
-apps/
-frontend/ # React (Vite or Next.js), Tailwind, shadcn/ui
-backend/ # Node.js (TypeScript), Fastify/Express
-stats_rs/ # Rust microservice (Axum or Actix)
-packages/
-shared-types/ # zod/io-ts schemas shared FE/BE
-docker/
-backend.Dockerfile
-frontend.Dockerfile
-stats_rs.Dockerfile
-docker-compose.yml
-README.md
+---
 
-## Example Flow (End-to-End)
+## 🧠 Architecture
 
-1. User uploads CSV → Node stores datasetId.
-2. User selects two-sample t-test → Node calls Rust /ttest with column picks.
-3. Rust responds with stats JSON → Node displays table text + builds a default chart spec (e.g., violin_with_box for groups).
-4. Node calls Py /render with that spec → gets PNG URL → front end shows chart alongside the stats.
-5. User clicks Export → Node bundles Markdown report + tables + images.
+The app follows a simple pipeline:
+React (frontend)
+↓
+Node.js (backend)
+↓
+Rust (stats microservice)
+↓
+Python (plotting microservice)
 
-## API Surface (Sketch)
+For a deeper look, see the full [Architecture Details](./docs/architecture.md).
 
-- POST /upload → returns datasetId. (Streams to disk; infer schema.)
-- POST /jobs → { datasetId, analysis: "ttest_two_sample", params: {...} } → returns jobId.
-- GET /jobs/:jobId/stream → SSE for progress.
-- GET /results/:jobId → JSON: stats, tables, pretty text, csv/markdown exports.
-
-## Rust Microservice (what it owns)
-
-- Robust CSV loader (handles headers, missing values, locale commas).
-- Column typing (numeric/ordinal/categorical with thresholds).
-- Numeric kernels:
-  - Descriptives (O(n) single-pass where possible).
-  - Tests (Welch’s t by default; Levene for variance check optional).
-  - Chi-square with Yates correction toggle.
-  - ANOVA (one-way; Tukey post-hoc later).
-  - Simple OLS (β, SE, t, p, CI, R²) with basic residual checks.
-- Deterministic JSON outputs with metadata (n, df, assumptions).
-
-### Example Rust function signatures
-
-```rust
-    pub fn describe(x: &[f64]) -> DescribeOut { /* mean, sd, se, ci95, ... */ }
-    pub fn ttest_welch(x: &[f64], y: &[f64]) -> TTestOut { /* t, df, p, ci */ }
-    pub fn chisq_independence(a: &Array2<u64>) -> ChiSqOut { /* X2, df, p */ }
-    pub fn ols_simple(x: &[f64], y: &[f64]) -> OlsOut { /* beta0, beta1, ... */ }
-```
-
-### Data Contracts
-
-```json
-{
-  "jobId": "j_123",
-  "datasetId": "d_abc",
-  "analysis": "ttest_two_sample",
-  "inputs": { "x": "height_cm", "y": "group" },
-  "result": {
-    "t": 2.153,
-    "df": 38.7,
-    "p": 0.0371,
-    "ci": [0.8, 12.4],
-    "meanX": 172.4,
-    "meanY": 166.1,
-    "cohenD": 0.68,
-    "assumptions": { "welch": true }
-  },
-  "meta": { "nX": 21, "nY": 19, "missing": 2, "seed": 0 }
-}
-```
-
-## Python Chart Microservice
-
-- Framework: FastAPI (Python) for quick endpoints.
-- Endpoint: POST /render takes the spec, validates (pydantic), renders with matplotlib, saves to /out, returns URL + hash.
-- Repro tips:
-  - Set matplotlib.use("Agg") and fix font to “DejaVu Sans”.
-  - Set a global random seed for jitter/violin.
-  - Respect width/height/dpi; keep default colors so reviewers recognize matplotlib output.
-- Caching: SHA256 over (spec JSON normalized) → filename. If exists, return existing.
-
-### Node -> Python (chart spec)
-
-```json
-{
-  "chartId": "c_789",
-  "type": "violin_with_box",
-  "title": "Height by Group",
-  "data": {
-    "series": [
-      { "name": "A", "values": [170,172,169, ...] },
-      { "name": "B", "values": [163,165,168, ...] }
-    ]
-  },
-  "enc": { "y": "values", "x": "name" },
-  "style": {
-    "width": 900, "height": 600,
-    "dpi": 144, "font": "DejaVu Sans",
-    "grid": true
-  },
-  "annotations": [
-    { "kind": "text", "text": "Welch t=2.15, p=0.037", "xy": [0.5, 0.95], "coords": "axes" }
-  ],
-  "export": { "format": "png", "transparent": false }
-}
-```
-
-### Python -> Node (render response)
-
-```json
-{
-  "chartId": "c_789",
-  "url": "http://plots_py:7000/render/c_789.png",
-  "sha256": "ae4f...c2",
-  "format": "png",
-  "width": 900,
-  "height": 600,
-  "bytes": null
-}
-```
-
-## Frontend UX
-
-- Dataset page: preview table, type toggles, choose variables, quick data cleaning (drop NA, z-score outliers).
-- Analysis wizard: pick method → choose columns → assumptions checklist → “Run”.
-- Results:
-  - Clean APA-style tables (copy as Markdown/HTML/CSV).
-  - Auto summary (e.g., “There was a significant difference… t(38)=2.15, p=0.037, d=0.68”).
-  - Downloadable report (.md or .docx later).
-
-## Docker
-
-### Running and validating
+## Quick Start
 
 ```bash
-docker compose --env-file ../resources/.env config   # should show variables resolved (no warnings)
-docker compose up -d        # start everything
-docker compose logs -f db   # wait for "database system is ready to accept connections"
-docker compose logs -f mongo
-docker compose ps
-docker compose config       # validate compose syntax
-
+docker compose up --build
 ```
 
-### Docker Contracts
+## Repository Layout
 
-```ts
-export const TTestTwoSampleParams = z.object({
-  xColumn: z.string(),
-  yColumn: z.string(),
-  equalVariances: z.boolean().default(false),
-  alternative: z.enum(["two-sided", "less", "greater"]).default("two-sided"),
-});
-export const TTestOut = z.object({
-  t: z.number(),
-  df: z.number(),
-  p: z.number(),
-  ci: z.tuple([z.number(), z.number()]),
-  meanX: z.number(),
-  meanY: z.number(),
-  cohenD: z.number(),
-});
-```
+Visit: `http://localhost:8080`
 
-## Database
+| Folder                  | Description                       |
+| ----------------------- | --------------------------------- |
+| `apps/frontend`         | React (Vite + Tailwind)           |
+| `apps/backend`          | Node.js (Express/Fastify)         |
+| `apps/stats_rs`         | Rust service (Axum)               |
+| `apps/plots_py`         | Python FastAPI matplotlib service |
+| `packages/shared-types` | Shared Zod/TypeScript schemas     |
+| `docker/`               | Dockerfiles and Compose configs   |
 
-### When to mix databases (and why)
+## Documentation
 
-- Relational core (Postgres/MySQL): strict integrity, joins, transactions. Great for users, permissions, datasets, jobs, and audit trails.
-- Document layer (MongoDB): flexible, sparse, rapidly evolving shapes (custom fields, settings, artifacts/specs) without migrations.
-- (Optional) Search layer (OpenSearch/Elasticsearch): fast, fuzzy search across names, notes, and attachments.
-- (Optional) Cache/queue (Redis/Kafka): speed + decoupling for ingestion and async jobs.
-  Many CRM/contact products follow this pattern.
+[Architecture Details](./docs/architecture.md)
 
-### A concrete split for your Stats Utility App
+[Stats Service - Rust](./docs/stats_rs.md)
 
-PostgreSQL (authoritative, transactional)
+[Plot Service - Python](./docs/plots_py.md)
 
-- users, datasets, jobs (status, started_at, finished_at)
-- results_index (one row per analysis result; small summary columns; pointer to full blob)
-- Foreign keys, constraints, easy reporting
-  MongoDB (flexible artifacts & evolving schemas)
-- results_blobs: the full JSON output from Rust (test stats, diagnostics), versioned
-- plot_specs: the chart spec you send to the Python service (these evolve a lot)
-- run_contexts: environment hashes, library versions, CPU flags (nice for reproducibility)
-- (Optional) custom_fields: arbitrary tags/notes a user attaches to datasets/jobs
-  Why not just Postgres JSONB? You could. But using Mongo gives you practice with:
-- rapidly changing doc shapes,
-- partial updates,
-- different indexing strategies (compound, text, TTL),
-- separate scaling/backup knobs (exactly what big products do).
+[Database](./docs/database.md)
 
-### How services talk without losing consistency
+[Docker](./docs/docker.md)
 
-- Node API is the orchestrator. It writes the truth to Postgres (create job), then sends compute to Rust.
-- Rust returns results → Node:
-  1. stores full blob in Mongo (results_blobs), gets \_id,
-  2. writes a summary row to Postgres results_index (with the Mongo \_id).
-- For plots: Node builds a chart spec, saves it in Mongo plot_specs, calls Python to render, and stores the file path/hash back in Postgres (optional).
-- If you need stronger guarantees across stores, use the Outbox pattern (write an events row in Postgres within the same tx; a worker reads and applies it to Mongo) or CDC later.
+[Frontend](./docs/frontend.md)
 
-#### Pros
+[Backend](./docs/backend.md)
 
-- Right tool for each job: strict integrity + flexible evolution.
-- Performance: hot JSON docs in Mongo; clean reporting in SQL.
-- Evolvability: add fields to artifacts/specs without migrations.
+## Tech Stack
 
-#### Cons
+- Frontend: React, Vite, Tailwind CSS, shadcn/ui
+- Backend: Node.js (Express or Fastify), TypeScript
+- Microservices: Rust (Axum) + Python (FastAPI, Matplotlib)
+- Data Storage: PostgreSQL + MongoDB
+- Containerization: Docker & Docker Compose
 
-- Operational complexity (two backups, two monitoring stacks).
-- No cross-DB transactions → need orchestration patterns (outbox/saga).
-- Duplicate data requires discipline (clear ownership rules).
+## Development Notes
 
-## Details
+- Run individual services locally (cargo run, npm run dev, etc.)
+- `.env` files are separated for Docker vs. app runtime
+- Use docker compose config to validate all env vars are resolved
 
-### Why add a separate plotting service?
+## License
 
-#### Pros
-
-- Language separation: Rust stays numeric; Python owns viz ergonomics (mpl ecosystem is rich).
-- Reusability: any future service can request plots via the same API.
-- Caching: image cache is independent and cheap.
-- Extensibility: can add seaborn/plotnine later without touching Rust/Node.
-
-#### Cons
-
-- More moving parts (deploy + logs).
-- Slight latency added (usually fine; renders are quick for small datasets).
-
-### Testing & reliability
-
-- Contract tests in Node using fixed CSVs: assert Rust’s numeric outputs (golden files).
-- Snapshot tests for plots: compare sha256 of rendered PNGs for a fixed spec (ensure reproducibility).
-- Load tests (small): parallel renders with different specs to validate cache behavior.
-
-### Security & perf notes
-
-- Validate inputs in both Node and Py (length caps, numeric ranges).
-- Limit max rows plotted (e.g., downsample to 50k points) and warn user.
-- Enforce timeouts in Node when calling Rust/Py; return graceful errors.
-- Use content-addressable filenames so the same spec never re-renders.
-
-### Nice default charts (map analysis → viz)
-
-- Describe (1 column): histogram + KDE line; boxplot.
-- Compare means (2 groups): violin+box, bar±CI, swarm (n≤5k).
-- Categorical × categorical: mosaic/stacked bar + residuals heatmap.
-- Regression: scatter + fitted line + CI band; residuals vs fitted; QQ.
-
-## PR Template
-
-### Summary
-
-Sets up initial infrastructure for the stats-utility-app:
-
-- Postgres + schema initialization (with persistent volume)
-- MongoDB + Mongo Express UI
-- pgAdmin with servers.json auto-register
-- Docker Compose orchestration with health checks and env-file support
-
-### Why
-
-Provides a baseline for multi-service orchestration and future extension (Rust microservice, plotting service, etc.).
-
-### Notes
-
-- `.env` files separated for Docker vs. app runtime
-- pgAdmin and Mongo Express are for dev/debug only
-
-## Updating the GitHub Actions ruleset
-
-Run the following command from root
-
-```bash
-# Delete existing
-gh api -X DELETE repos/swallace100/stats-utility-app/rulesets/<RULESET NUMBER>
-
-# Recreate with updated JSON
-gh api -X POST repos/swallace100/stats-utility-app/rulesets \
-  -H "Accept: application/vnd.github+json" \
-  --input .github/ruleset-main.json
-
-
-```
-
-To get the current GitHub Actions ruleset
-
-```bash
-gh api repos/swallace100/stats-utility-app/rulesets --jq '.[].id, .[].name'
-
-gh api repos/swallace100/stats-utility-app/rulesets/<RULESET NUMBER>
-
-```
-
-## Rust Commands
-
-### Build & run
-
-```ps
-cargo run
-```
-
-### Health
-
-```bash
-curl -fsS http://localhost:9000/health
-```
-
-### Describe (JSON array)
-
-```bash
-curl -fsS -X POST http://localhost:9000/describe \
--H 'content-type: application/json' \
--d '[1,2,3,4,5]'
-```
-
-### Describe (CSV)
-
-```bash
-curl -fsS -X POST http://localhost:9000/describe-csv \
--H 'content-type: text/csv' \
---data-binary $'value
-1
-2
-3
-4
-5' | jq
-```
-
-### Schema (input/output)
-
-```bash
-curl -fsS http://localhost:9000/schema/describe-input | jq
-curl -fsS http://localhost:9000/schema/describe-output | jq
-```
-
-### OpenAPI JSON
-
-```bash
-curl -fsS http://localhost:9000/openapi.json | jq
-```
-
-## Rust Commands
-
-```bash
-curl -fsS http://127.0.0.1:7000/health
-curl -fsS -X POST http://127.0.0.1:7000/render \
-  -H "content-type: application/json" -d "[1,2,3,4]" --output out.png
-curl -fsS -X POST http://127.0.0.1:7000/render-csv \
-  -H "content-type: text/csv" --data-binary $'val\n1\n2\n3\n4' --output out.png
-```
-
-OpenAPI endpoints available at `http://127.0.0.1:7000/docs`
-
-## Backend Commands
-
-### Swagger only (No database and no services)
-
-```bash
-  NO_DB=1 FAKE_SERVICES=1 PORT=8080 \
-  UPLOAD_DIR=./tmp/uploads PLOTS_DIR=./tmp/plots \
-  npm run dev
-```
+[MIT © 2025 Steven Wallace](./LICENSE)

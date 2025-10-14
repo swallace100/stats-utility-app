@@ -76,15 +76,12 @@ repos:
 
   # --- JS/TS/React (Prettier + ESLint) ---
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.6.2 # known-good tag on that fork
+    rev: v3.6.2
     hooks:
       - id: prettier
         files: "\\.(js|jsx|ts|tsx|css|scss|md|json|yml|yaml)$"
-        # optional plugins:
-        # additional_dependencies:
-        #   - "prettier-plugin-tailwindcss@0.5.14"
 
-  # (ESLint uses your repo config; align versions with package.json)
+  # (ESLint uses repo config; align versions with package.json)
   - repo: local
     hooks:
       - id: eslint-frontend
