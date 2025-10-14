@@ -38,6 +38,20 @@ type JobDoc = {
 
 const nowISO = () => new Date().toISOString();
 
+// helpers – small wrappers around fetch for JSON and PNG proxying
+async function fetchJSON(url: string, init?: RequestInit) {
+  const r = await fetch(url, init);
+  if (!r.ok) throw new Error(`${url} -> ${r.status}`);
+  return r.json();
+}
+
+async function fetchPNG(url: string, init?: RequestInit) {
+  const r = await fetch(url, init);
+  if (!r.ok) throw new Error(`${url} -> ${r.status}`);
+  const ab = await r.arrayBuffer();
+  return Buffer.from(ab);
+}
+
 (async () => {
   // ----- Ensure dirs exist -----
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
@@ -82,6 +96,12 @@ const nowISO = () => new Date().toISOString();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "10mb" }));
 
+  // CSV text for /analyze/* routes
+  const textCsv = express.text({
+    type: ["text/csv", "text/plain", "application/octet-stream"],
+    limit: "10mb",
+  });
+
   // Health
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
@@ -91,6 +111,128 @@ const nowISO = () => new Date().toISOString();
 
   // Docs (Swagger UI using your generated OpenAPI)
   registerDocs(app);
+
+  // ---------- ANALYZE (stats_rs) ----------
+  app.post("/analyze/summary", textCsv, async (req, res) => {
+    try {
+      const csv = (req.body ?? "") as string;
+      if (!csv.trim()) return res.status(400).json({ error: "empty CSV body" });
+      const out = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/summary`, {
+        method: "POST",
+        headers: { "content-type": "text/csv" },
+        body: csv,
+      });
+      res.json(out);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
+
+  app.post("/analyze/distribution", textCsv, async (req, res) => {
+    try {
+      const csv = (req.body ?? "") as string;
+      if (!csv.trim()) return res.status(400).json({ error: "empty CSV body" });
+      const out = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/distribution`, {
+        method: "POST",
+        headers: { "content-type": "text/csv" },
+        body: csv,
+      });
+      res.json(out);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
+
+  // ---------- PLOT (plots_py) → returns PNG ----------
+  function pngHeaders(res: express.Response) {
+    res.setHeader("content-type", "image/png");
+    res.setHeader("cache-control", "no-store");
+  }
+
+  app.post("/plot/summary", async (req, res) => {
+    try {
+      const q = req.query?.title
+        ? `?title=${encodeURIComponent(String(req.query.title))}`
+        : "";
+      const png = await fetchPNG(`${PLOTS_PY_URL}/plot/summary${q}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+      pngHeaders(res);
+      res.end(png);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
+
+  app.post("/plot/distribution", async (req, res) => {
+    try {
+      const q = req.query?.title
+        ? `?title=${encodeURIComponent(String(req.query.title))}`
+        : "";
+      const png = await fetchPNG(`${PLOTS_PY_URL}/plot/distribution${q}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+      pngHeaders(res);
+      res.end(png);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
+
+  app.post("/plot/ecdf", async (req, res) => {
+    try {
+      const q = req.query?.title
+        ? `?title=${encodeURIComponent(String(req.query.title))}`
+        : "";
+      const png = await fetchPNG(`${PLOTS_PY_URL}/plot/ecdf${q}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+      pngHeaders(res);
+      res.end(png);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
+
+  app.post("/plot/qq", async (req, res) => {
+    try {
+      const q = req.query?.title
+        ? `?title=${encodeURIComponent(String(req.query.title))}`
+        : "";
+      const png = await fetchPNG(`${PLOTS_PY_URL}/plot/qq${q}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+      pngHeaders(res);
+      res.end(png);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
+
+  // Optional convenience: plot directly from CSV
+  app.post("/plot/from-csv", textCsv, async (req, res) => {
+    try {
+      const csv = (req.body ?? "") as string;
+      if (!csv.trim()) return res.status(400).json({ error: "empty CSV body" });
+      const png = await fetchPNG(`${PLOTS_PY_URL}/render-csv`, {
+        method: "POST",
+        headers: { "content-type": "text/csv" },
+        body: csv,
+      });
+      pngHeaders(res);
+      res.end(png);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
 
   // ----- Multer (multipart/form-data) for /upload -----
   const storage = multer.diskStorage({
@@ -191,10 +333,19 @@ const nowISO = () => new Date().toISOString();
       if (FAKE_SERVICES) {
         const fake =
           job.kind === "stats"
-            ? { mean: 28.3, variance: 42.0 }
+            ? {
+                count: 100,
+                mean: 12.3,
+                median: 12.0,
+                std: 0.8,
+                min: 9.0,
+                max: 15.2,
+                iqr: 1.1,
+                mad: 0.7,
+              }
             : {
                 imagePath: path.join(PLOTS_DIR, "fake_plot.png"),
-                meta: { chart: "hist", col: "age" },
+                meta: { chart: "render-csv" },
               };
 
         await Jobs.updateOne(
@@ -204,27 +355,38 @@ const nowISO = () => new Date().toISOString();
         return;
       }
 
+      // Read CSV from the saved file
+      const csv = await fs.readFile(job.filePath, "utf-8");
+
       if (job.kind === "stats") {
-        const r = await fetch(`${RUST_SVC_URL}/compute`, {
+        const data = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/summary`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ filePath: job.filePath, ...job.params }),
+          headers: { "content-type": "text/csv" },
+          body: csv,
         });
-        const data = await r.json();
         await Jobs.updateOne(
           { jobId: job.jobId },
           { $set: { status: "succeeded", result: data, updatedAt: nowISO() } },
         );
       } else if (job.kind === "plot") {
-        const r = await fetch(`${PLOTS_PY_URL}/plot`, {
+        const png = await fetchPNG(`${PLOTS_PY_URL}/render-csv`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ filePath: job.filePath, ...job.params }),
+          headers: { "content-type": "text/csv" },
+          body: csv,
         });
-        const data = await r.json(); // e.g., { imagePath, meta }
+        const filename = `${job.jobId}.png`;
+        const absPath = path.join(PLOTS_DIR, filename);
+        await fs.writeFile(absPath, png);
+        const publicUrl = `/files/plots/${filename}`; // served statically above
         await Jobs.updateOne(
           { jobId: job.jobId },
-          { $set: { status: "succeeded", result: data, updatedAt: nowISO() } },
+          {
+            $set: {
+              status: "succeeded",
+              result: { imagePath: absPath, publicUrl },
+              updatedAt: nowISO(),
+            },
+          },
         );
       } else {
         throw new Error(`Unknown kind: ${job.kind}`);
