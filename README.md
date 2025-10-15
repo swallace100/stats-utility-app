@@ -2,7 +2,7 @@
 
 A containerized statistics app with a React frontend, Node backend, and Rust/Python microservices for computation and plotting.
 
-![Architecture Diagram](docs/architecture.png)
+![Architecture Diagram](docs/architecture.jpg)
 
 ## Features
 
