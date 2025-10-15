@@ -47,7 +47,6 @@ class CorrMatrixOut(BaseModel):
 
 class OutliersOut(BaseModel):
     indices: List[int]
-    values: List[float]
 
 
 class SeriesWithOutliers(BaseModel):
