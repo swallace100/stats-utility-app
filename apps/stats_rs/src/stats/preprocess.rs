@@ -12,7 +12,7 @@ pub fn zscores(xs: &[f64]) -> Vec<f64> {
         .collect()
 }
 
-/// Min-max scale to [a,b] (default [0,1] if you pass 0.0,1.0).
+/// Min-max scale to \[a,b\] (default \[0,1\] if you pass 0.0,1.0).
 pub fn minmax_scale(xs: &[f64], a: f64, b: f64) -> Vec<f64> {
     if xs.is_empty() {
         return vec![];

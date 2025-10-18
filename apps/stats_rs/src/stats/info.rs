@@ -27,7 +27,7 @@ pub fn kl_divergence_bits(p: &[f64], q: &[f64]) -> f64 {
         .sum()
 }
 
-/// Jensen–Shannon divergence in bits (symmetric, bounded [0,1]).
+/// Jensen–Shannon divergence in bits (symmetric, bounded \[0,1\]).
 pub fn js_divergence_bits(p: &[f64], q: &[f64]) -> f64 {
     assert_eq!(p.len(), q.len());
     let m: Vec<f64> = p.iter().zip(q).map(|(&a, &b)| 0.5 * (a + b)).collect();

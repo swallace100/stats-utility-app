@@ -98,6 +98,18 @@ sh: ## Alias for exec
 	@$(MAKE) exec SERVICE=$(SERVICE)
 
 # -------------------------------
+# Documentation
+# -------------------------------
+
+.PHONY: docs
+docs: ## Build and open stats_rs developer documentation
+	cd apps/stats_rs && cargo doc --no-deps --open
+
+.PHONY: docs-private
+docs-private: ## Build docs including private/internal items
+	cd apps/stats_rs && cargo doc --no-deps --document-private-items --open
+
+# -------------------------------
 # Config / Env
 # -------------------------------
 

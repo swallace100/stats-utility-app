@@ -2,6 +2,16 @@
 
 A containerized statistics app with a React frontend, Node backend, and Rust/Python microservices for computation and plotting.
 
+![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
+![Node.js](https://img.shields.io/badge/Node.js-20+-green?logo=node.js)
+![React](https://img.shields.io/badge/React-18+-informational?logo=react)
+![Rust](https://img.shields.io/badge/Rust-1.80+-orange?logo=rust)
+![Python](https://img.shields.io/badge/Python-3.11+-yellow?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-teal?logo=fastapi)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue?logo=postgresql)
+![MongoDB](https://img.shields.io/badge/MongoDB-7+-brightgreen?logo=mongodb)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+
 ![Architecture Diagram](docs/architecture.jpg)
 
 ## Features
@@ -15,7 +25,7 @@ A containerized statistics app with a React frontend, Node backend, and Rust/Pyt
 
 ---
 
-## 🧠 Architecture
+## Architecture
 
 The app follows a simple pipeline:
 React (frontend)
