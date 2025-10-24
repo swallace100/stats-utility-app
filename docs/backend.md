@@ -117,8 +117,6 @@ docker compose -f docker/docker-compose.yml up -d backend
 
 Backend depends on:
 
-- `db` (healthy)
-- `mongo` (healthy)
 - `stats_rs` (started)
 - `plots_py` (started)
 
@@ -128,25 +126,20 @@ Health check: `GET /health`.
 
 Taken from `process.env` (`.env` loaded by Compose):
 
-| Var             | Default                       | Usage                                                  |
-| --------------- | ----------------------------- | ------------------------------------------------------ |
-| `PORT`          | `8080`                        | HTTP port                                              |
-| `MONGO_URL`     | `mongodb://mongo:27017/stats` | Mongo connection (ignored if `NO_DB=1`)                |
-| `RUST_SVC_URL`  | `http://stats_rs:9000`        | Base for stats service                                 |
-| `PLOTS_PY_URL`  | `http://plots_py:7000`        | Base for plot service                                  |
-| `UPLOAD_DIR`    | `<cwd>/data/uploads`          | Disk path for uploaded CSVs                            |
-| `PLOTS_DIR`     | `<cwd>/data/plots`            | Disk path for saved PNGs                               |
-| `NO_DB`         | `0`                           | When `1`, use in-memory job store (no Mongo)           |
-| `FAKE_SERVICES` | `0`                           | When `1`, bypass Rust/Python and return canned results |
+| Var             | Default                | Usage                                                  |
+| --------------- | ---------------------- | ------------------------------------------------------ |
+| `PORT`          | `8080`                 | HTTP port                                              |
+| `RUST_SVC_URL`  | `http://stats_rs:9000` | Base for stats service                                 |
+| `PLOTS_PY_URL`  | `http://plots_py:7000` | Base for plot service                                  |
+| `UPLOAD_DIR`    | `<cwd>/data/uploads`   | Disk path for uploaded CSVs                            |
+| `PLOTS_DIR`     | `<cwd>/data/plots`     | Disk path for saved PNGs                               |
+| `FAKE_SERVICES` | `0`                    | When `1`, bypass Rust/Python and return canned results |
 
-In production, prefer `NO_DB=0`, `FAKE_SERVICES=0`, and the Compose-mounted volume `data:`.
+In production, prefer `FAKE_SERVICES=0` and the Compose-mounted volume `data:`.
 
 ## Internals & Flow
 
 - CSV ingestion: `multer` stores the upload under `UPLOAD_DIR` with a generated ObjectId prefix.
-- Jobs store:
-  - If `NO_DB=1` → in-memory map
-  - Else → Mongo `jobs` collection
 - Async worker: `processJob(job)` reads the saved CSV and:
   - `kind="stats"` → POST CSV to `${RUST_SVC_URL}/api/v1/stats/summary`, saves JSON result
   - `kind="plot"` → POST CSV to `${PLOTS_PY_URL}/render-csv`, saves PNG to `PLOTS_DIR`, adds `publicUrl: /files/plots/<jobId>.png`
@@ -181,7 +174,7 @@ CSV routes explicitly reject empty bodies with `400`.
 - Health
 - Analyze happy/error paths
 - Plot happy/error paths (assert `image/png`)
-- Upload → Jobs → Results lifecycle (with `NO_DB=1` for speed)
+- Upload → Jobs → Results lifecycle
 
 ## Security Notes
 
@@ -199,6 +192,5 @@ CSV routes explicitly reject empty bodies with `400`.
 - 502 from /analyze or /plot → check downstream health:
   - `curl -fsS http://localhost:9000/api/v1/health` (stats_rs)
   - `curl -fsS http://localhost:7000/health` (plots_py)
-- Jobs not persisted → confirm `NO_DB` not set (or use Mongo with valid `MONGO_URL`)
 - Images not visible → ensure `PLOTS_DIR` exists and file is under `/files/plots static root
 - CORS during dev → run frontend via Vite proxy or enable CORS middleware here

@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { MongoClient, ObjectId } from "mongodb";
+import crypto from "node:crypto";
 
 import { UploadJobInput, type TUploadResponse } from "@your-scope/contracts";
 import { registerDocs } from "./docs";
@@ -12,7 +12,6 @@ const cwd = process.cwd();
 
 const {
   PORT = "8080",
-  MONGO_URL = "mongodb://mongo:27017/stats",
   RUST_SVC_URL = "http://stats_rs:9000",
   PLOTS_PY_URL = "http://plots_py:7000",
 } = process.env;
@@ -20,10 +19,10 @@ const {
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(cwd, "data", "uploads");
 const PLOTS_DIR = process.env.PLOTS_DIR || path.join(cwd, "data", "plots");
 
-const NO_DB = process.env.NO_DB === "1"; // skip Mongo, use in-memory jobs
 const FAKE_SERVICES = process.env.FAKE_SERVICES === "1"; // don't call Rust/Python
 
 type JobStatus = "queued" | "running" | "succeeded" | "failed";
+
 type JobDoc = {
   jobId: string;
   kind: "stats" | "plot";
@@ -36,7 +35,9 @@ type JobDoc = {
   result?: unknown;
 };
 
+// util
 const nowISO = () => new Date().toISOString();
+const newJobId = () => crypto.randomUUID();
 
 // helpers – small wrappers around fetch for JSON and PNG proxying
 async function fetchJSON(url: string, init?: RequestInit) {
@@ -52,51 +53,49 @@ async function fetchPNG(url: string, init?: RequestInit) {
   return Buffer.from(ab);
 }
 
+// -----------------------------
+// In-memory job storage
+// -----------------------------
+const Mem: Record<string, JobDoc> = {};
+
+function insertJob(doc: JobDoc) {
+  Mem[doc.jobId] = doc;
+}
+
+function updateJob(jobId: string, patch: Partial<JobDoc>) {
+  const j = Mem[jobId];
+  if (j) {
+    Mem[jobId] = { ...j, ...patch, updatedAt: nowISO() };
+  }
+}
+
+function getJob(jobId: string): JobDoc | null {
+  return Mem[jobId] || null;
+}
+
+function listJobs(limit = 50): JobDoc[] {
+  // newest first by createdAt
+  return Object.values(Mem)
+    .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1))
+    .slice(0, limit);
+}
+
+// -----------------------------
+// main bootstrap (async IIFE so we can await fs.mkdir)
+// -----------------------------
 (async () => {
-  // ----- Ensure dirs exist -----
+  // Ensure dirs exist
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
   await fs.mkdir(PLOTS_DIR, { recursive: true });
 
-  // ----- DB (Mongo or in-memory) -----
-  let Jobs: any;
-
-  if (NO_DB) {
-    const Mem: Record<string, JobDoc> = {};
-    Jobs = {
-      insertOne: async (doc: JobDoc) => {
-        Mem[doc.jobId] = doc;
-      },
-      updateOne: async (q: { jobId: string }, u: { $set: Partial<JobDoc> }) => {
-        const j = Mem[q.jobId];
-        if (j) Mem[q.jobId] = { ...j, ...u.$set };
-      },
-      find: () => ({
-        sort: () => ({
-          limit: () => ({
-            toArray: async () =>
-              Object.values(Mem).sort((a, b) =>
-                a.createdAt > b.createdAt ? -1 : 1,
-              ),
-          }),
-        }),
-      }),
-      findOne: async (q: { jobId: string }) => Mem[q.jobId] || null,
-    };
-    console.log("[server] Using in-memory DB (NO_DB=1)");
-  } else {
-    const mongo = new MongoClient(MONGO_URL);
-    await mongo.connect();
-    const db = mongo.db(); // default database name from URL
-    Jobs = db.collection("jobs");
-    console.log("[server] Connected to Mongo");
-  }
+  console.log("[server] Using in-memory job store (NO_DB mode)");
 
   // ----- Express app -----
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "10mb" }));
 
-  // CSV text for /analyze/* routes
+  // CSV text parser for /analyze/* routes
   const textCsv = express.text({
     type: ["text/csv", "text/plain", "application/octet-stream"],
     limit: "10mb",
@@ -105,41 +104,53 @@ async function fetchPNG(url: string, init?: RequestInit) {
   // Health
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
-  // Static files (so results can return public URLs)
+  // Static directories so we can serve uploaded CSVs / generated plots if needed
   app.use("/files/uploads", express.static(UPLOAD_DIR));
   app.use("/files/plots", express.static(PLOTS_DIR));
 
-  // Docs (Swagger UI using your generated OpenAPI)
+  // Docs (Swagger / OpenAPI UI)
   registerDocs(app);
 
   // ---------- ANALYZE (stats_rs) ----------
   app.post("/analyze/summary", textCsv, async (req, res) => {
     try {
       const csv = (req.body ?? "") as string;
-      if (!csv.trim()) return res.status(400).json({ error: "empty CSV body" });
+      if (!csv.trim()) {
+        return res.status(400).json({ error: "empty CSV body" });
+      }
+
       const out = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/summary`, {
         method: "POST",
         headers: { "content-type": "text/csv" },
         body: csv,
       });
+
       res.json(out);
-    } catch (e: any) {
-      res.status(502).json({ error: String(e?.message || e) });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+      res.status(502).json({ error: msg });
     }
   });
 
   app.post("/analyze/distribution", textCsv, async (req, res) => {
     try {
       const csv = (req.body ?? "") as string;
-      if (!csv.trim()) return res.status(400).json({ error: "empty CSV body" });
+      if (!csv.trim()) {
+        return res.status(400).json({ error: "empty CSV body" });
+      }
+
       const out = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/distribution`, {
         method: "POST",
         headers: { "content-type": "text/csv" },
         body: csv,
       });
+
       res.json(out);
-    } catch (e: any) {
-      res.status(502).json({ error: String(e?.message || e) });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+      res.status(502).json({ error: msg });
     }
   });
 
@@ -161,8 +172,10 @@ async function fetchPNG(url: string, init?: RequestInit) {
       });
       pngHeaders(res);
       res.end(png);
-    } catch (e: any) {
-      res.status(502).json({ error: String(e?.message || e) });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+      res.status(502).json({ error: msg });
     }
   });
 
@@ -178,8 +191,10 @@ async function fetchPNG(url: string, init?: RequestInit) {
       });
       pngHeaders(res);
       res.end(png);
-    } catch (e: any) {
-      res.status(502).json({ error: String(e?.message || e) });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+      res.status(502).json({ error: msg });
     }
   });
 
@@ -195,8 +210,10 @@ async function fetchPNG(url: string, init?: RequestInit) {
       });
       pngHeaders(res);
       res.end(png);
-    } catch (e: any) {
-      res.status(502).json({ error: String(e?.message || e) });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+      res.status(502).json({ error: msg });
     }
   });
 
@@ -212,39 +229,50 @@ async function fetchPNG(url: string, init?: RequestInit) {
       });
       pngHeaders(res);
       res.end(png);
-    } catch (e: any) {
-      res.status(502).json({ error: String(e?.message || e) });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+      res.status(502).json({ error: msg });
     }
   });
 
-  // Optional convenience: plot directly from CSV
+  // Optional convenience route: plot directly from CSV
   app.post("/plot/from-csv", textCsv, async (req, res) => {
     try {
       const csv = (req.body ?? "") as string;
-      if (!csv.trim()) return res.status(400).json({ error: "empty CSV body" });
+      if (!csv.trim()) {
+        return res.status(400).json({ error: "empty CSV body" });
+      }
+
       const png = await fetchPNG(`${PLOTS_PY_URL}/render-csv`, {
         method: "POST",
         headers: { "content-type": "text/csv" },
         body: csv,
       });
+
       pngHeaders(res);
       res.end(png);
-    } catch (e: any) {
-      res.status(502).json({ error: String(e?.message || e) });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+      res.status(502).json({ error: msg });
     }
   });
 
   // ----- Multer (multipart/form-data) for /upload -----
   const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-    filename: (_req, file, cb) =>
-      cb(null, `${new ObjectId().toHexString()}_${file.originalname}`),
+    filename: (_req, file, cb) => {
+      const idPart = newJobId();
+      cb(null, `${idPart}_${file.originalname}`);
+    },
   });
   const upload = multer({ storage });
 
   // POST /upload  (fields: file, metadata)
   app.post("/upload", upload.single("file"), async (req, res) => {
     try {
+      // metadata may describe what kind of job this is
       const metaStr = (req.body?.metadata ?? "").toString();
       const parsed = UploadJobInput.safeParse(
         metaStr ? JSON.parse(metaStr) : {},
@@ -252,15 +280,18 @@ async function fetchPNG(url: string, init?: RequestInit) {
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
       }
+
       const { kind, params } = parsed.data;
 
       const savedFilename = req.file?.filename;
-      if (!savedFilename)
+      if (!savedFilename) {
         return res.status(400).json({ error: "file is required" });
+      }
+
       const filePath = path.join(UPLOAD_DIR, savedFilename);
 
-      // Create job
-      const jobId = new ObjectId().toHexString();
+      // create new job
+      const jobId = newJobId();
       const jobDoc: JobDoc = {
         jobId,
         kind,
@@ -270,22 +301,23 @@ async function fetchPNG(url: string, init?: RequestInit) {
         createdAt: nowISO(),
         updatedAt: nowISO(),
       };
-      await Jobs.insertOne(jobDoc);
+      insertJob(jobDoc);
 
-      // async processing (fire-and-forget)
+      // async background processing (fire-and-forget)
       processJob(jobDoc).catch((err) => console.error("processJob error", err));
 
       const resp: TUploadResponse = { jobId, status: "queued" };
       return res.status(202).json(resp);
-    } catch (e: any) {
-      return res.status(500).json({ error: String(e?.message || e) });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+      return res.status(500).json({ error: msg });
     }
   });
 
-  // GET /jobs
-  app.get("/jobs", async (_req, res) => {
-    const items = await Jobs.find().sort({ createdAt: -1 }).limit(50).toArray();
-    const out = items.map((i: JobDoc) => ({
+  // GET /jobs  -> recent jobs (in-memory)
+  app.get("/jobs", (_req, res) => {
+    const items = listJobs(50).map((i) => ({
       jobId: i.jobId,
       kind: i.kind,
       status: i.status,
@@ -294,44 +326,39 @@ async function fetchPNG(url: string, init?: RequestInit) {
       error: i.error,
       result: i.result,
     }));
-    res.json(out);
+    res.json(items);
   });
 
   // GET /results/:jobId
-  app.get("/results/:jobId", async (req, res) => {
+  app.get("/results/:jobId", (req, res) => {
     const { jobId } = req.params as { jobId: string };
-    const job: JobDoc | null = await Jobs.findOne({ jobId });
-    if (!job) return res.status(404).json({ error: "Not found" });
-
-    // Optional: map file system path to public URL
-    // const publicUrl =
-    //   (job.result as any)?.imagePath?.startsWith(PLOTS_DIR)
-    //     ? (job.result as any).imagePath.replace(PLOTS_DIR, "/files/plots")
-    //     : (job.result as any)?.imagePath;
+    const job = getJob(jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Not found" });
+    }
 
     res.json({
       jobId: job.jobId,
       status: job.status,
-      result: job.result, // or { ...(job.result as any), publicUrl }
+      result: job.result,
       error: job.error,
     });
   });
 
-  // ----- listen -----
+  // ----- Start server -----
   app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`API listening on port ${PORT}`);
   });
 
   // ----- async worker -----
   async function processJob(job: JobDoc) {
-    await Jobs.updateOne(
-      { jobId: job.jobId },
-      { $set: { status: "running", updatedAt: nowISO() } },
-    );
+    // mark running
+    updateJob(job.jobId, { status: "running" });
 
     try {
       if (FAKE_SERVICES) {
-        const fake =
+        // fake output without calling Rust/Python services
+        const fakeResult =
           job.kind === "stats"
             ? {
                 count: 100,
@@ -345,63 +372,60 @@ async function fetchPNG(url: string, init?: RequestInit) {
               }
             : {
                 imagePath: path.join(PLOTS_DIR, "fake_plot.png"),
-                meta: { chart: "render-csv" },
+                publicUrl: "/files/plots/fake_plot.png",
               };
 
-        await Jobs.updateOne(
-          { jobId: job.jobId },
-          { $set: { status: "succeeded", result: fake, updatedAt: nowISO() } },
-        );
+        updateJob(job.jobId, {
+          status: "succeeded",
+          result: fakeResult,
+        });
         return;
       }
 
-      // Read CSV from the saved file
+      // Read CSV contents from disk
       const csv = await fs.readFile(job.filePath, "utf-8");
 
       if (job.kind === "stats") {
+        // ask Rust service for summary stats
         const data = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/summary`, {
           method: "POST",
           headers: { "content-type": "text/csv" },
           body: csv,
         });
-        await Jobs.updateOne(
-          { jobId: job.jobId },
-          { $set: { status: "succeeded", result: data, updatedAt: nowISO() } },
-        );
+
+        updateJob(job.jobId, {
+          status: "succeeded",
+          result: data,
+        });
       } else if (job.kind === "plot") {
+        // ask Python service to render plot image
         const png = await fetchPNG(`${PLOTS_PY_URL}/render-csv`, {
           method: "POST",
           headers: { "content-type": "text/csv" },
           body: csv,
         });
+
         const filename = `${job.jobId}.png`;
         const absPath = path.join(PLOTS_DIR, filename);
         await fs.writeFile(absPath, png);
-        const publicUrl = `/files/plots/${filename}`; // served statically above
-        await Jobs.updateOne(
-          { jobId: job.jobId },
-          {
-            $set: {
-              status: "succeeded",
-              result: { imagePath: absPath, publicUrl },
-              updatedAt: nowISO(),
-            },
-          },
-        );
+
+        const publicUrl = `/files/plots/${filename}`;
+
+        updateJob(job.jobId, {
+          status: "succeeded",
+          result: { imagePath: absPath, publicUrl },
+        });
       } else {
         throw new Error(`Unknown kind: ${job.kind}`);
       }
-    } catch (e: any) {
-      await Jobs.updateOne(
-        { jobId: job.jobId },
-        {
-          $set: {
-            status: "failed",
-            error: String(e?.message || e),
-            updatedAt: nowISO(),
-          },
-        },
-      );
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
+
+      updateJob(job.jobId, {
+        status: "failed",
+        error: msg,
+      });
     }
   }
 })();

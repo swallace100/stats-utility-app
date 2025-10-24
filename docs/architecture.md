@@ -22,9 +22,7 @@ flowchart TD
   end
 
   subgraph Storage
-    PG[(PostgreSQL)]
-    MG[(MongoDB)]
-    FS["Local/Blob Storage<br/>Uploads & Rendered Images"]
+    FS["Local Storage<br/>Uploads & Rendered Images"]
   end
 
   %% Flows
@@ -94,7 +92,6 @@ Each layer has a clear responsibility boundary:
 
 - Central controller that:
   - Handles REST requests from the frontend.
-  - Manages dataset/job lifecycle in Postgres/Mongo.
   - Invokes Rust and Python services with timeouts/retries.
   - Builds Markdown summaries and exportable artifacts.
 

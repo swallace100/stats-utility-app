@@ -11,7 +11,6 @@
 //! While currently empty, this struct serves as a foundation for adding
 //! shared resources such as:
 //!
-//! - Database connection pools (e.g., PostgreSQL, MongoDB, SQLite)
 //! - Cached models or compiled statistical kernels
 //! - Configuration data or feature flags
 //! - Global rate limiter or metrics handles
@@ -42,7 +41,6 @@
 /// ```rust,ignore
 /// #[derive(Clone, Default)]
 /// pub struct AppState {
-///     pub db: Pool<Postgres>,
 ///     pub cache: Arc<Mutex<HashMap<String, f64>>>,
 /// }
 /// ```
