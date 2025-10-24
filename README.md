@@ -8,8 +8,6 @@ A containerized statistics app with a React frontend, Node backend, and Rust/Pyt
 ![Rust](https://img.shields.io/badge/Rust-1.80+-orange?logo=rust)
 ![Python](https://img.shields.io/badge/Python-3.11+-yellow?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-teal?logo=fastapi)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue?logo=postgresql)
-![MongoDB](https://img.shields.io/badge/MongoDB-7+-brightgreen?logo=mongodb)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
 ![Architecture Diagram](docs/architecture.jpg)
@@ -65,8 +63,6 @@ Visit: `http://localhost:8080`
 
 [Plot Service - Python](./docs/plots_py.md)
 
-[Database](./docs/database.md)
-
 [Docker](./docs/docker.md)
 
 [Frontend](./docs/frontend.md)
@@ -78,7 +74,6 @@ Visit: `http://localhost:8080`
 - Frontend: React, Vite, Tailwind CSS, shadcn/ui
 - Backend: Node.js (Express or Fastify), TypeScript
 - Microservices: Rust (Axum) + Python (FastAPI, Matplotlib)
-- Data Storage: PostgreSQL + MongoDB
 - Containerization: Docker & Docker Compose
 
 ## Development Notes

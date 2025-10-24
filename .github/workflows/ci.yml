@@ -191,22 +191,6 @@ jobs:
         run: |
           mkdir -p docker
           cat > docker/.env <<'EOF'
-          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-          POSTGRES_HOST=db
-          POSTGRES_PORT=5432
-
-          MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_INITDB_ROOT_USERNAME }}
-          MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}
-          MONGO_HOST=mongo
-          MONGO_PORT=27017
-
-          MONGO_EXPRESS_USER=${{ secrets.MONGO_EXPRESS_USER }}
-          MONGO_EXPRESS_PASSWORD=${{ secrets.MONGO_EXPRESS_PASSWORD }}
-
-          PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
-          PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
 
           RUST_SVC_URL=http://stats_rs:9000
           PLOT_SVC_URL=http://plots_py:7000
@@ -246,19 +230,6 @@ jobs:
         working-directory: docker
         run: |
           cat > .env <<EOF
-          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-          POSTGRES_HOST=db
-          POSTGRES_PORT=5432
-          PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
-          PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
-          MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_INITDB_ROOT_USERNAME }}
-          MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}
-          MONGO_HOST=mongo
-          MONGO_PORT=27017
-          MONGO_EXPRESS_USER=${{ secrets.MONGO_EXPRESS_USER }}
-          MONGO_EXPRESS_PASSWORD=${{ secrets.MONGO_EXPRESS_PASSWORD }}
           RUST_SVC_URL=http://stats_rs:9000
           PLOT_SVC_URL=http://plots_py:7000
           NO_DB=1
@@ -311,11 +282,6 @@ jobs:
             docker compose $COMPOSE_FILE logs --no-log-prefix --tail=80 "$svc" || true
             exit 1
           }
-
-          # bring up DBs first and wait
-          docker compose $COMPOSE_FILE up -d db mongo
-          wait_healthy db
-          wait_healthy mongo
 
           # bring up app services
           docker compose $COMPOSE_FILE up -d backend plots_py stats_rs frontend

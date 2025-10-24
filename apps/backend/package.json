@@ -32,7 +32,6 @@
     "@asteasolutions/zod-to-openapi": "^8.1.0",
     "@your-scope/contracts": "file:../packages/contracts",
     "express": "^5.1.0",
-    "mongodb": "^6.0.0",
     "multer": "^2.0.2",
     "stats-utility-app": "file:../..",
     "swagger-ui-express": "^5.0.1",
