@@ -1,29 +1,19 @@
-import { Button } from "@/components/ui/button";
-import {
-  NavigationMenu,
-  NavigationMenuList,
-} from "@/components/ui/navigation-menu";
-
 export default function NavBar() {
   return (
-    <header className="border-b">
-      <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
-        <a href="/" className="font-semibold">
-          Stats Utility
-        </a>
-        <NavigationMenu>
-          <NavigationMenuList className="gap-2">
-            <a href="/jobs" className="text-sm hover:underline">
-              Jobs
-            </a>
-            <a href="/upload" className="text-sm hover:underline">
-              Upload
-            </a>
-          </NavigationMenuList>
-        </NavigationMenu>
-        <Button asChild size="sm">
-          <a href="/docs">Docs</a>
-        </Button>
+    <header className="sticky top-0 z-30 border-b border-neutral-200/70 bg-white/70 backdrop-blur-sm">
+      <div className="mx-auto max-w-7xl h-12 px-4 flex items-center justify-between">
+        {/* left placeholder for balance */}
+        <div className="text-[12px] text-neutral-400 select-none"> </div>
+
+        {/* right: single link */}
+        <nav className="ml-auto">
+          <a
+            href="/jobs"
+            className="text-[12px] font-medium text-neutral-600 hover:text-neutral-900 transition"
+          >
+            Job History
+          </a>
+        </nav>
       </div>
     </header>
   );

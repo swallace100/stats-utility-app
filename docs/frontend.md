@@ -60,12 +60,11 @@ The frontend is built with `VITE_API_URL=http://backend:8080` at image build tim
 ```bash
 apps/frontend/
 src/
-    App.tsx # main page + QuickAnalyze component
+    App.tsx
     components/
         NavBar.tsx
-        UploadCsvCard.tsx
+        AnalyzePanel.tsx
         ResultBoard.tsx
-        CSVPreview.tsx
     lib/
         api.ts # API_URL, CSV utils, typed fetch helpers
         utils.ts
