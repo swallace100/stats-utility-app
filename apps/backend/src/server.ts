@@ -1,3 +1,4 @@
+import cors from "cors";
 import express from "express";
 import multer from "multer";
 import path from "node:path";
@@ -53,6 +54,34 @@ async function fetchPNG(url: string, init?: RequestInit) {
   return Buffer.from(ab);
 }
 
+function csvToNumberArray(csvRaw: string): number[] {
+  // Split into lines, trim, drop blanks
+  const lines = csvRaw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  const out: number[] = [];
+
+  // Regex: integer or float, optional leading minus
+  const isNum = (s: string) => /^-?\d+(\.\d+)?$/.test(s);
+
+  for (const line of lines) {
+    // Split each row on comma OR whitespace (so "1,2,3" and "1 2 3" both work)
+    const cells = line.split(/[,\s]+/);
+
+    // We'll push the first numeric cell in the row.
+    for (const cell of cells) {
+      if (isNum(cell)) {
+        out.push(Number(cell));
+        break;
+      }
+    }
+  }
+
+  return out;
+}
+
 // -----------------------------
 // In-memory job storage
 // -----------------------------
@@ -93,6 +122,13 @@ function listJobs(limit = 50): JobDoc[] {
   // ----- Express app -----
   const app = express();
   app.disable("x-powered-by");
+
+  app.use(
+    cors({
+      origin: ["http://localhost:8085", "http://localhost:5173"],
+    }),
+  );
+
   app.use(express.json({ limit: "10mb" }));
 
   // CSV text parser for /analyze/* routes
@@ -114,43 +150,112 @@ function listJobs(limit = 50): JobDoc[] {
   // ---------- ANALYZE (stats_rs) ----------
   app.post("/analyze/summary", textCsv, async (req, res) => {
     try {
-      const csv = (req.body ?? "") as string;
-      if (!csv.trim()) {
+      const rawCsv = (req.body ?? "") as string;
+      if (!rawCsv.trim()) {
         return res.status(400).json({ error: "empty CSV body" });
       }
 
+      const values = csvToNumberArray(rawCsv);
+      if (!values.length) {
+        return res.status(400).json({ error: "no numeric data found" });
+      }
+
+      // Shape based on SummaryIn from stats_rs
+      const payload = { values };
+
       const out = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/summary`, {
         method: "POST",
-        headers: { "content-type": "text/csv" },
-        body: csv,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       res.json(out);
-    } catch (e: unknown) {
-      const msg =
-        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
-      res.status(502).json({ error: msg });
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
     }
   });
 
   app.post("/analyze/distribution", textCsv, async (req, res) => {
     try {
-      const csv = (req.body ?? "") as string;
-      if (!csv.trim()) {
+      const rawCsv = (req.body ?? "") as string;
+      if (!rawCsv.trim()) {
         return res.status(400).json({ error: "empty CSV body" });
       }
 
+      const values = csvToNumberArray(rawCsv);
+      if (!values.length) {
+        return res.status(400).json({ error: "no numeric data found" });
+      }
+
+      // Shape based on DistIn from stats_rs
+      // We'll assume for now it at least needs { values }
+      // If later DistIn adds fields (like bin rule), we can extend this.
+      const payload = { values };
+
       const out = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/distribution`, {
         method: "POST",
-        headers: { "content-type": "text/csv" },
-        body: csv,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       res.json(out);
-    } catch (e: unknown) {
-      const msg =
-        e instanceof Error ? e.message : `unexpected error: ${String(e)}`;
-      res.status(502).json({ error: msg });
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
+
+  app.post("/analyze/ecdf", textCsv, async (req, res) => {
+    try {
+      const rawCsv = (req.body ?? "") as string;
+      if (!rawCsv.trim()) {
+        return res.status(400).json({ error: "empty CSV body" });
+      }
+
+      const values = csvToNumberArray(rawCsv);
+      if (!values.length) {
+        return res.status(400).json({ error: "no numeric data found" });
+      }
+
+      const payload = {
+        values,
+        max_points: 1000,
+      };
+
+      const out = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/ecdf`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      res.json(out);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
+    }
+  });
+
+  app.post("/analyze/qq", textCsv, async (req, res) => {
+    try {
+      const rawCsv = (req.body ?? "") as string;
+      if (!rawCsv.trim()) {
+        return res.status(400).json({ error: "empty CSV body" });
+      }
+
+      const values = csvToNumberArray(rawCsv);
+      if (!values.length) {
+        return res.status(400).json({ error: "no numeric data found" });
+      }
+
+      const payload = { values };
+
+      const out = await fetchJSON(`${RUST_SVC_URL}/api/v1/stats/qq-normal`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      res.json(out);
+    } catch (e: any) {
+      res.status(502).json({ error: String(e?.message || e) });
     }
   });
 
