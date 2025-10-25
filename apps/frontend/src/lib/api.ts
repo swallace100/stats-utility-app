@@ -115,6 +115,26 @@ export async function statsDistributionFromCsv(csv: string): Promise<DistOut> {
   });
 }
 
+export async function statsEcdfFromCsv(csv: string) {
+  const r = await fetch(`${API_URL}/analyze/ecdf`, {
+    method: "POST",
+    headers: { "content-type": "text/csv" },
+    body: csv,
+  });
+  if (!r.ok) throw new Error("ecdf failed");
+  return r.json();
+}
+
+export async function statsQqFromCsv(csv: string) {
+  const r = await fetch(`${API_URL}/analyze/qq`, {
+    method: "POST",
+    headers: { "content-type": "text/csv" },
+    body: csv,
+  });
+  if (!r.ok) throw new Error("qq failed");
+  return r.json();
+}
+
 // ---------- plots (via backend → returns blob URL) ----------
 export function plotSummaryPng(
   summary: SummaryOut,

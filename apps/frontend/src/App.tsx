@@ -8,6 +8,8 @@ import {
   readCsvFile,
   statsSummaryFromCsv,
   statsDistributionFromCsv,
+  statsEcdfFromCsv,
+  statsQqFromCsv,
 } from "./lib/api";
 import * as Api from "./lib/api";
 
@@ -62,24 +64,30 @@ export default function App() {
   async function handleCalculate(file: File): Promise<void> {
     setBusy(true);
     setErr(null);
-
     try {
       const csv = await readCsvFile(file);
 
-      // get summary stats
-      const s = await statsSummaryFromCsv(csv);
+      const [s, d, eOut, qOut] = await Promise.all([
+        statsSummaryFromCsv(csv),
+        statsDistributionFromCsv(csv),
+        statsEcdfFromCsv(csv),
+        statsQqFromCsv(csv),
+      ]);
+
       setSummary(s);
-
-      // get distribution data (histograms etc.)
-      const d = await statsDistributionFromCsv(csv);
       setDist(d);
-
-      // once ECDF / QQ endpoints exist, wire them here
-      setEcdf(null);
-      setQq(null);
+      setEcdf(eOut);
+      setQq(qOut);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Calculation failed";
+      const msg = e instanceof Error ? e.message : "Analyze failed";
       setErr(msg);
+
+      // graceful partial fallback (so UI still shows what it got)
+      // you're allowed to keep these if you want:
+      // setSummary(prev => prev ?? null)
+      // setDist(prev => prev ?? null)
+      // setEcdf(prev => prev ?? null)
+      // setQq(prev => prev ?? null)
     } finally {
       setBusy(false);
     }

@@ -4,7 +4,7 @@ services:
       context: ../apps/frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://backend:8080
+        VITE_API_URL: ${VITE_API_URL}
     ports:
       - "8085:80"
     healthcheck:
@@ -29,10 +29,10 @@ services:
     environment:
       - RUST_SVC_URL=${RUST_SVC_URL}
       - PLOT_SVC_URL=${PLOT_SVC_URL}
-      - FAKE_SERVICES=1
+      - FAKE_SERVICES=0
       - PORT=8080
-      - UPLOAD_DIR=/app/data/uploads
-      - PLOTS_DIR=/app/data/plots
+      - UPLOAD_DIR=${UPLOAD_DIR}
+      - PLOTS_DIR=${PLOTS_DIR}
     healthcheck:
       test:
         [
